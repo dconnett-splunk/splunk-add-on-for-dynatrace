@@ -33,6 +33,9 @@ import requests
 
 # encoding = utf-8
 
+sys.path.append(os.path.join(os.environ['SPLUNK_HOME'],'etc','apps','SA-VSCode','bin'))
+import splunk_debug as dbg
+dbg.enable_debugging(timeout=25)
 
 
 class ModInputdynatrace_problem(base_mi.BaseModInput):
