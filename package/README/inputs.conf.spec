@@ -20,3 +20,9 @@ dynatrace_collection_interval = Relative timeframe passed to Dynatrace API. Time
 dynatrace_metric = https://www.dynatrace.com/support/help/dynatrace-api/timeseries/how-do-i-fetch-the-metrics-of-monitored-entities/#available-timeseries
 aggregation_type = 
 ssl_certificate_verification = 
+
+[dynatrace_api_v2://<name>]
+dynatrace_account = API token and tenant to grant access to Dynatrace.
+dynatrace_collection_interval = Relative timeframe passed to Dynatrace API. Timeframe of data to be collected at each polling interval.
+entity_endpoints = 
+ssl_certificate_verification = 
