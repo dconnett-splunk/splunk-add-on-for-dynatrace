@@ -9,7 +9,6 @@ import traceback
 import logging
 import logging.handlers
 
-
 """util.py: This module contains utility functions for the package. These functions are used by the package's scripts.
     
     Functions:
@@ -29,6 +28,7 @@ __license__ = "Splunk General Terms"
 dynatrace_managed_uri_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2'
 dynatrace_saas_uri_v2 = 'https://{your-enviroment-id}.live.dynatrace.com/api/v2'
 dynatrace_environment_active_gate_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2'
+
 
 # Get current working directory
 
@@ -109,9 +109,10 @@ def parse_secrets_env():
     # Return the secrets
     return secrets
 
+
 # Get dynatrace Problems from apiv2
 # https://www.dynatrace.com/support/help/dynatrace-api/environment-api/problems/problems-get/
-def get_dynatrace_problems(tenant, api_token, time=None, page_size=100):
+def get_dynatrace_problems(tenant, api_token, time=None, page_size=100, verify=True):
     """Get Dynatrace problems from the API v2.
 
     Args:
@@ -141,14 +142,15 @@ def get_dynatrace_problems(tenant, api_token, time=None, page_size=100):
     # Set the URL
     url = tenant + '/api/v2/problems'
     # Get the problems
-    response = requests.get(url, headers=headers, params=parameters)
+    response = requests.get(url, headers=headers, params=parameters, verify=verify)
     # Return the response
     return response.json()
+
 
 # Get all monitoried entity types
 
 
-def get_dynatrace_entity_types(tenant, api_token):
+def get_dynatrace_entity_types(tenant, api_token, verify=True):
     """Get all monitored entity types from the API v2.
 
     Args:
@@ -166,12 +168,12 @@ def get_dynatrace_entity_types(tenant, api_token):
     # Set the URL
     url = tenant + '/api/v2/entityTypes'
     # Get the entity types
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, verify=verify)
     # Return the response
     return response.json()
 
 
-def get_dynatrace_entity(tenant, api_token, time=None, page_size=100):
+def get_dynatrace_entity(tenant, api_token, time=None, page_size=100, verify=True):
     """Get Dynatrace entities from the API v2.
 
     Args:
@@ -201,14 +203,14 @@ def get_dynatrace_entity(tenant, api_token, time=None, page_size=100):
     # Set the URL
     url = tenant + '/api/v2/entities'
     # Get the problems
-    response = requests.get(url, headers=headers, params=parameters)
+    response = requests.get(url, headers=headers, params=parameters, verify=verify)
     # Return the response
     return response.json()
 
 # List all dynatrace entities
+# TODO: Generalize this function to accept any endpoint
 
-
-def get_all_dynatrace_entities(tenant, api_token, entity_selector, time=None, page_size=100):
+def get_all_dynatrace_entities(tenant, api_token, entity_selector, time=None, page_size=100, verify=True):
     """Get all Dynatrace entities.
 
     Args:
@@ -225,7 +227,7 @@ def get_all_dynatrace_entities(tenant, api_token, entity_selector, time=None, pa
     entities = []
     # Get the first page of entities
     response = get_dynatrace_entity(
-        tenant, api_token, time=time, page_size=page_size)
+        tenant, api_token, time=time, page_size=page_size, verify=verify)
     # Loop through the entities
     for entity in response['values']:
         # Check if the entity matches the entity selector
@@ -238,7 +240,7 @@ def get_all_dynatrace_entities(tenant, api_token, entity_selector, time=None, pa
     while next_page is not None:
         # Get the next page of entities
         response = get_dynatrace_entity(
-            tenant, api_token, time=time, page_size=page_size, next_page=next_page)
+            tenant, api_token, time=time, page_size=page_size, next_page=next_page, verify=verify)
         # Loop through the entities
         for entity in response['values']:
             # Check if the entity matches the entity selector
@@ -250,10 +252,10 @@ def get_all_dynatrace_entities(tenant, api_token, entity_selector, time=None, pa
     # Return the entities
     return entities
 
-
+# TODO: Generalize this function to only deal with paramater building
 # List all metrics
 # https://www.dynatrace.com/support/help/dynatrace-api/environment-api/metric-v2/examples/list-all-metrics
-def get_all_dynatrace_metrics(tenant, api_token, time=None, page_size=100):
+def get_all_dynatrace_metrics(tenant, api_token, time=None, page_size=100, verify=True):
     """Get Dynatrace metrics from the API v2.
 
     Args:
@@ -289,14 +291,14 @@ def get_all_dynatrace_metrics(tenant, api_token, time=None, page_size=100):
     # Add paramaters to get all metrics
     parameters['fields'] = 'displayName,unit,aggregationTypes'
 
-    response = requests.get(url, headers=headers, params=parameters)
+    response = requests.get(url, headers=headers, params=parameters, verify=verify)
 
     # Return the response
     return response.json()
 
 
 # Get Dynatrace metrics from api v2
-def get_dynatrace_metrics(tenant, api_token, metric_selector, time=None, page_size=100):
+def get_dynatrace_metrics(tenant, api_token, metric_selector, time=None, page_size=100, verify=True):
     """Get Dynatrace metrics from the API v2.
 
     Args:
@@ -329,14 +331,14 @@ def get_dynatrace_metrics(tenant, api_token, metric_selector, time=None, page_si
     # Set the URL
     url = tenant + '/api/v2/metrics/query'
     # Get the problems
-    response = requests.get(url, headers=headers, params=parameters)
+    response = requests.get(url, headers=headers, params=parameters, verify=verify)
     # Return the response
     return response.json()
 
 # Get Dynatrace metrics descriptors from api v2
 
 
-def get_dynatrace_metrics_descriptors(tenant, api_token, metric_selector, time=None, page_size=100):
+def get_dynatrace_metrics_descriptors(tenant, api_token, metric_selector, time=None, page_size=100, verify=True):
     """Get Dynatrace metrics descriptors from the API v2.
 
     Args:
@@ -369,17 +371,76 @@ def get_dynatrace_metrics_descriptors(tenant, api_token, metric_selector, time=N
     # Set the URL
     url = tenant + '/api/v2/metrics/query/descriptors'
     # Get the problems
-    response = requests.get(url, headers=headers, params=parameters)
+    response = requests.get(url, headers=headers, params=parameters, verify=verify)
     # Return the response
     return response.json()
 
+def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_size=100, verify=True):
+    """Get Dynatrace data from the API v2. 
+
+    Args:
+        endpoint (str): Dynatrace API endpoint.
+        tenant (str): Dynatrace
+        api_token (str): Dynatrace API token
+        params (dict): Parameters for the API call. Defaults to {}.
+        time (str): Time range for the problems. Defaults to None.
+        page_size (int): Number of problems to return. Defaults to 100.
+        verify (bool): Verify SSL certificate. Defaults to True.
+
+    Returns:
+        json: JSON response from the API.
+    """
+    # Set the headers
+    headers = {
+        'Authorization': 'Api-Token {}'.format(api_token),
+        'version': 'Splunk_TA_Dynatrace'
+    }
+    # Set the parameters
+    params['pageSize'] = page_size
+    if not time:
+        params['from'] = time
+    if params:
+        parameters.update(params)
+    # Set the URL
+    url = tenant + endpoint
+    # Get the problems
+    response = requests.get(url, headers=headers, params=params, verify=verify)
+    # Return the response
+    return response.json()
 
 # Assign secrets to variables
 #dynatrace_tenant = os.environ['dynatrace_tenant']
 #dynatrace_api_token = os.environ['dynatrace_api_token']
+v2_endpoints = {"metrics": "/api/v2/metrics", 
+                "metrics_query": "/api/v2/metrics/query",
+                "metrics_descriptors": "/api/v2/metrics/query/descriptors",
+                "metrics_timeseries": "/api/v2/metrics/query/timeseries",
+                "metrics_timeseries_descriptors": "/api/v2/metrics/query/timeseries/descriptors",
+                "metrics_timeseries_aggregates": "/api/v2/metrics/query/timeseries/aggregate",
+                "entities": "/api/v2/entities",
+                "problems": "/api/v2/problems",
+                "events": "/api/v2/events",
+                "synthetic_locations": "/api/v2/synthetic/locations",
+                "synthetic_tests": "/api/v2/synthetic/tests",
+                "synthetic_tests_results": "/api/v2/synthetic/tests/results"
+}
+
+v2_params = {'metrics':
+             {'nextPageKey': 'nextPageKey',
+                 'metricSelector': 'metricSelector',
+                 'text': 'text',
+                 'fields': ['fields'],
+                 'writtenSince': 'writtenSince',
+                 'metadataSelector': 'metadataSelector'
+              }}
+
 secrets = parse_secrets_env()
 dynatrace_tenant = secrets['dynatrace_tenant']
 dynatrace_api_token = secrets['dynatrace_api_token']
+
+# Testing new data collection functions
+get_dynatrace_data(v2_endpoints['metrics'], dynatrace_tenant, dynatrace_api_token, time=None, page_size=100, verify=True)
+get_dynatrace_data(v2_endpoints['synthetic_locations'], dynatrace_tenant, dynatrace_api_token, time=None, page_size=100, verify=True)
 
 # Print variables for testing
 print('dynatrace_tenant: ' + dynatrace_tenant)
@@ -402,10 +463,10 @@ print(get_dynatrace_entity(dynatrace_tenant, dynatrace_api_token))
 
 # Store the metrics in a list
 
-problems: json = get_dynatrace_problems(dynatrace_tenant, dynatrace_api_token)
-entities: json = get_dynatrace_entity(dynatrace_tenant, dynatrace_api_token)
+problems: json = get_dynatrace_problems(dynatrace_tenant, dynatrace_api_token, verify=False)
+entities: json = get_dynatrace_entity(dynatrace_tenant, dynatrace_api_token, verify=False)
 metrics: json = get_all_dynatrace_metrics(
-    dynatrace_tenant, dynatrace_api_token)
+    dynatrace_tenant, dynatrace_api_token, verify=False)
 
 print(problems)
 print(entities)
