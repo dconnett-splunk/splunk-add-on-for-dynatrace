@@ -390,6 +390,8 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
     Returns:
         json: JSON response from the API.
     """
+
+    parameters = {}
     # Set the headers
     headers = {
         'Authorization': 'Api-Token {}'.format(api_token),
@@ -400,13 +402,15 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
     if not time:
         params['from'] = time
     if params:
-        parameters.update(params)
+        # concatenate two dictionaries of http paramaters
+        parameters = {**params, **parameters}
     # Set the URL
     url = tenant + endpoint
     # Get the problems
     response = requests.get(url, headers=headers, params=params, verify=verify)
     # Return the response
     return response.json()
+
 
 # Assign secrets to variables
 #dynatrace_tenant = os.environ['dynatrace_tenant']
@@ -439,8 +443,8 @@ dynatrace_tenant = secrets['dynatrace_tenant']
 dynatrace_api_token = secrets['dynatrace_api_token']
 
 # Testing new data collection functions
-get_dynatrace_data(v2_endpoints['metrics'], dynatrace_tenant, dynatrace_api_token, time=None, page_size=100, verify=True)
-get_dynatrace_data(v2_endpoints['synthetic_locations'], dynatrace_tenant, dynatrace_api_token, time=None, page_size=100, verify=True)
+get_dynatrace_data(v2_endpoints['metrics'], dynatrace_tenant, dynatrace_api_token, time=None, page_size=100, verify=False)
+get_dynatrace_data(v2_endpoints['synthetic_locations'], dynatrace_tenant, dynatrace_api_token, time=None, page_size=100, verify=False)
 
 # Print variables for testing
 print('dynatrace_tenant: ' + dynatrace_tenant)
