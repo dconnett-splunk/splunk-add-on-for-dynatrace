@@ -3,15 +3,25 @@ import datetime
 # Get time one hour ago Human-readable format of 2021-01-25T05:57:01.123+01:00
 
 # get time from one hour ago in UTC milliseconds
+
+written_since = (datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp()
+paged_data = get_dynatrace_data('metrics', dynatrace_tenant, dynatrace_api_token, page_size=500, verify=False)
+
+secrets = parse_secrets_env()
+dynatrace_tenant = secrets['dynatrace_tenant']
+dynatrace_api_token = secrets['dynatrace_api_token']
+
 written_since = (datetime.datetime.now() - datetime.timedelta(hours=1)).timestamp()
 last_hour = {'written_since': f'{written_since}'}
+written_since = (datetime.datetime.now() - datetime.timedelta(hours=200)).timestamp()
+last_week = {'written_since': f'{written_since}'}
 print(last_hour)
 
 # Testing new data collection functions
-get_dynatrace_data('metrics', dynatrace_tenant, dynatrace_api_token, params=last_hour(), time=None, page_size=100, verify=False)
-get_dynatrace_data('problems', dynatrace_tenant, dynatrace_api_token, params=last_hour(), time=None, page_size=100, verify=False)
-get_dynatrace_data('events', dynatrace_tenant, dynatrace_api_token, params=last_hour(),  time=None, page_size=100, verify=False)
-get_dynatrace_data('synthetic_locations', dynatrace_tenant, dynatrace_api_token, params=last_hour(), time=None, page_size=100, verify=False)
+get_dynatrace_data('metrics', dynatrace_tenant, dynatrace_api_token, params=last_hour, time=None, page_size=100, verify=False)
+get_dynatrace_data('problems', dynatrace_tenant, dynatrace_api_token, page_size=100, verify=False)
+get_dynatrace_data('events', dynatrace_tenant, dynatrace_api_token, params=last_hour,  time=None, page_size=100, verify=False)
+get_dynatrace_data('synthetic_locations', dynatrace_tenant, dynatrace_api_token, params=last_hour, time=None, page_size=100, verify=False)
 
 paged_data = get_dynatrace_data(v2_endpoints['metrics'], dynatrace_tenant, dynatrace_api_token, time=None, page_size=100, verify=False)
 # Get next page field from paged_data

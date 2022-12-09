@@ -98,10 +98,11 @@ def parse_secrets_env():
     """
     # Create the secrets dictionary
     secrets = {}
+    print(get_current_working_directory())
     # Check if the secrets.env file exists
-    if os.path.exists('secrets.env'):
+    if os.path.exists('../../secrets.env'):
         # Open the secrets.env file
-        with open('secrets.env') as f:
+        with open('../../secrets.env') as f:
             # Loop through each line
             for line in f:
                 # Split the line into key/value pairs
@@ -410,10 +411,13 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
     }
     # Set the parameters
     # Add writtenSince to the parameters using default_time() as string
-    parameters = default_time()
+
+    #parameters = default_time()
     params['pageSize'] = page_size
-    if not time:
-        params['from'] = time
+    if time:
+        params['from'] = time.get('written_since')
+        del parameters['written_since']
+        del params['written_since']
     if params:
         # concatenate two dictionaries of http paramaters
         parameters = {**params, **parameters}
@@ -423,29 +427,31 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
     url = tenant + endpoint
     # Get the problems
     response = requests.get(url, headers=headers, params=parameters, verify=verify)
-    total_count = response.json()['totalCount']
-    number_of_pages = total_count / page_size
-    results = response.json()[selector]
-    # Keep pageing through the results
-    while response.json()['nextPageKey']:
-        parameters = {}
-        parameters['nextPageKey'] = response.json()['nextPageKey']
-        print("Next page key", response.json()['nextPageKey'])
+    if 'totalCount' in response.json():
+        total_count = response.json()['totalCount']
+        number_of_pages = total_count / page_size
+        results = response.json()[selector]
+        # Keep pageing through the results
+        if 'nextPageKey' in response.json():
+            while response.json()['nextPageKey']:
+                parameters = {}
+                parameters['nextPageKey'] = response.json()['nextPageKey']
+                print("Next page key", response.json()['nextPageKey'])
 
-        # Set nextpagekey as query parameter for next request
-         
+                # Set nextpagekey as query parameter for next request
 
-        response = requests.get(url, headers=headers, params=parameters, verify=verify)
-        test = response.json()
-        # print first result 
-        print("First result", test[selector][0])
-        results.extend(response.json()[selector])
-        print("Results", len(results))
-        print("Total count", total_count)
 
-    # Remove the nextPageKey from the results
+                response = requests.get(url, headers=headers, params=parameters, verify=verify)
+                test = response.json()
+                # print first result
+                print("First result", test[selector][0])
+                results.extend(response.json()[selector])
+                print("Results", len(results))
+                print("Total count", total_count)
 
-    print("deleted nextPageKey")
+            # Remove the nextPageKey from the results
+
+            print("deleted nextPageKey")
 
     # Return the response
     return results
