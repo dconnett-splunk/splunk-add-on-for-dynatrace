@@ -5,7 +5,6 @@ import datetime
 # get time from one hour ago in UTC milliseconds
 
 written_since = (datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp()
-paged_data = get_dynatrace_data('metrics', dynatrace_tenant, dynatrace_api_token, page_size=500, verify=False)
 
 secrets = parse_secrets_env()
 dynatrace_tenant = secrets['dynatrace_tenant']
@@ -23,12 +22,8 @@ get_dynatrace_data('problems', dynatrace_tenant, dynatrace_api_token, page_size=
 get_dynatrace_data('events', dynatrace_tenant, dynatrace_api_token, params=last_hour,  time=None, page_size=100, verify=False)
 get_dynatrace_data('synthetic_locations', dynatrace_tenant, dynatrace_api_token, params=last_hour, time=None, page_size=100, verify=False)
 
-paged_data = get_dynatrace_data(v2_endpoints['metrics'], dynatrace_tenant, dynatrace_api_token, time=None, page_size=100, verify=False)
-# Get next page field from paged_data
-del paged_data['nextPageKey']
-paged_data['nextPageKey']
-next_page
-paged_data
+paged_data = get_dynatrace_data('metrics', dynatrace_tenant, dynatrace_api_token, time=None, page_size=100, verify=False)
+
 # Print variables for testing
 print('dynatrace_tenant: ' + dynatrace_tenant)
 print('dynatrace_api_token: ' + dynatrace_api_token)

@@ -382,7 +382,7 @@ def default_time():
     written_since = (datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp()
     last_hour = {'written_since': f'{written_since}'}
     return last_hour
- 
+
 
 def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_size=100, verify=True):
     """Get Dynatrace data from the API v2. 
@@ -400,8 +400,8 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
         json: JSON response from the API.
     """
 
-
     parameters = {}
+    results = {}
     selector = v2_selectors[endpoint]
     endpoint = v2_endpoints[endpoint]
     # Set the headers
@@ -412,7 +412,7 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
     # Set the parameters
     # Add writtenSince to the parameters using default_time() as string
 
-    #parameters = default_time()
+    # Some Dynatrace endpoints require a time range specified as "from" and "to" while others require "writtenSince"
     params['pageSize'] = page_size
     if time:
         params['from'] = time.get('written_since')
@@ -422,40 +422,53 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
         # concatenate two dictionaries of http paramaters
         parameters = {**params, **parameters}
 
-
     # Set the URL
     url = tenant + endpoint
     # Get the problems
-    response = requests.get(url, headers=headers, params=parameters, verify=verify)
-    if 'totalCount' in response.json():
-        total_count = response.json()['totalCount']
-        number_of_pages = total_count / page_size
-        results = response.json()[selector]
+    try:
+        response = requests.get(url, headers=headers, params=parameters, verify=verify)
+        # If request doesn't have a 400 or greater error
+        if response.status_code < 400:
+            parsed_response = response.json()
+            results = response.json()[selector]
+
+    except requests.exceptions.HTTPError as err:
+        print(err)
+
         # Keep pageing through the results
-        if 'nextPageKey' in response.json():
-            while response.json()['nextPageKey']:
-                parameters = {}
-                parameters['nextPageKey'] = response.json()['nextPageKey']
-                print("Next page key", response.json()['nextPageKey'])
+        while ('nextPageKey' in parsed_response and parsed_response.get('nextPageKey') is not None):
+            parameters = {}
+            parsed_response = response.json()
+            print("Parsed Response: " + str(parsed_response.get('nextPageKey')))
 
-                # Set nextpagekey as query parameter for next request
+            parameters['nextPageKey'] = parsed_response['nextPageKey']
+            print("Next page key", response.json()['nextPageKey'])
+
+            # Set nextpagekey as query parameter for next request
+
+            response = requests.get(url, headers=headers, params=parameters, verify=verify)
+            test = response.json()
+            parsed_response = response.json()
+            # print first result
+            print("First result", test[selector][0])
+            results.extend(response.json()[selector])
+            print("Results", len(results))
+            print("Total count", total_count)
+
+            # Parse and store response in results
 
 
-                response = requests.get(url, headers=headers, params=parameters, verify=verify)
-                test = response.json()
-                # print first result
-                print("First result", test[selector][0])
-                results.extend(response.json()[selector])
-                print("Results", len(results))
-                print("Total count", total_count)
+            # Check if nextPageKey is in the response or is null
+            if ('nextPageKey' not in parsed_response or parsed_response.get('nextPageKey') is None):
+                break
 
-            # Remove the nextPageKey from the results
+        # Remove the nextPageKey from the results
 
-            print("deleted nextPageKey")
+        print("deleted nextPageKey")
 
+    print(results)
     # Return the response
     return results
-
 
 # Assign secrets to variables
 #dynatrace_tenant = os.environ['dynatrace_tenant']
