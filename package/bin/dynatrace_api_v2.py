@@ -30,6 +30,7 @@ from solnlib import log
 from solnlib.modular_input import checkpointer
 from splunktaucclib.modinput_wrapper import base_modinput  as base_mi 
 import requests
+import util
 
 # encoding = utf-8
 
@@ -63,10 +64,17 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
                                          description="",
                                          required_on_create=True,
                                          required_on_edit=False))
+
         scheme.add_argument(smi.Argument("dynatrace_collection_interval", title="Dynatrace Collection Interval",
                                          description="Relative timeframe passed to Dynatrace API. Timeframe of data to be collected at each polling interval.",
                                          required_on_create=True,
                                          required_on_edit=False))
+
+        scheme.add_argument(smi.Argument("dynatrace_apiv2_endpoint", title="Dynatrace API Endpoint",
+                                         description="Dynatrace API endpoint to be used for data collection.",
+                                         required_on_create=True,
+                                         required_on_edit=False))
+
         # scheme.add_argument(smi.Argument("entity_endpoints", title="Entity Endpoints",
         #                                  description="",
         #                                  required_on_create=True,
@@ -82,7 +90,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
 
     def validate_input(helper, definition):
         pass
-    
+
 
     def collect_events(helper, ew):
     
@@ -101,35 +109,38 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         Force HTTPS
         '''
         
-        # dynatrace_account_input = helper.get_arg("dynatrace_account")
-        # dynatrace_tenant_input = dynatrace_account_input["username"]
-        
-        # if dynatrace_tenant_input.find('https://') == 0:
-        #     opt_dynatrace_tenant = dynatrace_tenant_input
-        # elif dynatrace_tenant_input.find('http://') == 0:
-        #     opt_dynatrace_tenant = dynatrace_tenant_input.replace('http://', 'https://')
-        # else: 
-        #     opt_dynatrace_tenant = 'https://' + dynatrace_tenant_input
-        
-        '''
-        '''
-        
-        # opt_dynatrace_api_token = dynatrace_account_input["password"]
-        # opt_dynatrace_collection_interval = helper.get_arg('dynatrace_collection_interval')
-        # #opt_dynatrace_entity_endpoints = helper.get_arg('entity_endpoints')
-        
-        # time_offset  = int(opt_dynatrace_collection_interval) * 1000
-        # current_time = int(round(time.time() * 1000))
-        # offset_time  = current_time - time_offset
-    
-    
-        # headers     = {'Authorization': 'Api-Token {}'.format(opt_dynatrace_api_token),
-        #                 'version':'Splunk TA 1.0.3'}
-        # api_url     = opt_dynatrace_tenant + '/api/v1/entity/'
-        # parameters  = { 'startTimestamp':str(offset_time), 
-        #                  'endTimestamp': str(current_time)
-        #                }
-    
+        dynatrace_account_input = helper.get_arg("dynatrace_account")
+        dynatrace_tenant_input = dynatrace_account_input["username"]
+
+        if dynatrace_tenant_input.find('https://') == 0:
+            opt_dynatrace_tenant = dynatrace_tenant_input
+        elif dynatrace_tenant_input.find('http://') == 0:
+            opt_dynatrace_tenant = dynatrace_tenant_input.replace('http://', 'https://')
+        else:
+            opt_dynatrace_tenant = 'https://' + dynatrace_tenant_input
+
+
+        opt_dynatrace_api_token = dynatrace_account_input["password"]
+
+        endpoint = helper.get_arg("dynatrace_apiv2_endpoint")
+
+
+        # get Dynatrace interval in minutes
+        opt_dynatrace_collection_interval_minutes = helper.get_arg("dynatrace_collection_interval")
+        opt_dynatrace_collection_interval = helper.get_arg('dynatrace_collection_interval')
+        opt_dynatrace_entity_endpoints = helper.get_arg('entity_endpoints')
+        opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
+
+        # Calculate time range given the collection interval using util.py
+        time_range = util.get_time_range(opt_dynatrace_collection_interval_minutes)
+
+        # get Dynatrace data given from util.py
+        dynatrace_data = util.get_dynatrace_data(endpoint,
+                                                 dynatrace_tenant_input,
+                                                 opt_dynatrace_api_token,
+                                                 time=time_range,
+                                                 ssl_certificate_verification=opt_ssl_certificate_verification)
+
         # for endpoint in opt_dynatrace_entity_endpoints:
         #     response = helper.send_http_request(api_url + endpoint , "GET", headers=headers,  parameters=parameters, payload=None, cookies=None, verify=verify_ssl, cert=None, timeout=None, use_proxy=True)
         #     try:

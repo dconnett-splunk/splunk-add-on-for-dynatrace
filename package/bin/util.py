@@ -3,7 +3,7 @@ import os
 import json
 import time
 import datetime
-from urllib import response
+import time
 import requests
 import traceback
 import logging
@@ -31,6 +31,26 @@ dynatrace_managed_uri_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2
 dynatrace_saas_uri_v2 = 'https://{your-enviroment-id}.live.dynatrace.com/api/v2'
 dynatrace_environment_active_gate_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2'
 
+v2_endpoints = {'metrics': '/api/v2/metrics',
+                'metrics_query': '/api/v2/metrics/query',
+                'metrics_descriptors': '/api/v2/metrics/query/descriptors',
+                'metrics_timeseries': '/api/v2/metrics/query/timeseries',
+                'metrics_timeseries_descriptors': '/api/v2/metrics/query/timeseries/descriptors',
+                'metrics_timeseries_aggregates': '/api/v2/metrics/query/timeseries/aggregate',
+                'entities': '/api/v2/entities',
+                'problems': '/api/v2/problems',
+                'events': '/api/v2/events',
+                'synthetic_locations': '/api/v2/synthetic/locations',
+                'synthetic_tests': '/api/v2/synthetic/tests',
+                'synthetic_tests_results': '/api/v2/synthetic/tests/results'}
+
+v2_params = {'metrics':
+             {'nextPageKey': 'nextPageKey',
+              'metricSelector': 'metricSelector',
+              'text': 'text',
+              'fields': ['fields'],
+              'writtenSince': 'writtenSince',
+              'metadataSelector': 'metadataSelector'}}
 
 # Get current working directory
 
@@ -91,7 +111,7 @@ def get_dynatrace_environment_active_gate_uri(domain, environment_id):
 
 
 def parse_secrets_env():
-    """Parse the secrets.env file.
+    """Parse the secrets.env file. Only used for testing, and running the scripts locally.
 
     Returns:
         dict: Dictionary of secrets from the secrets.env file.
@@ -115,231 +135,6 @@ def parse_secrets_env():
 
 # Get dynatrace Problems from apiv2
 # https://www.dynatrace.com/support/help/dynatrace-api/environment-api/problems/problems-get/
-def get_dynatrace_problems(tenant, api_token, time=None, page_size=100, verify=True):
-    """Get Dynatrace problems from the API v2.
-
-    Args:
-        tenant (str): Dynatrace
-        api_token (str): Dynatrace API token
-        time (str): Time range for the problems. Defaults to None.
-        page_size (int): Number of problems to return. Defaults to 100.
-
-    Returns:
-        json: JSON response from the API.
-    """
-    # Set the headers
-    headers = {
-        'Authorization': 'Api-Token {}'.format(api_token),
-        'version': 'Splunk_TA_Dynatrace'
-    }
-    # Set the parameters
-    if time is None:
-        parameters = {
-            'pageSize': page_size
-        }
-    else:
-        parameters = {
-            'from': time,
-            'pageSize': page_size
-        }
-    # Set the URL
-    url = tenant + '/api/v2/problems'
-    # Get the problems
-    response = requests.get(url, headers=headers, params=parameters, verify=verify)
-    # Return the response
-    return response.json()
-
-
-# Get all monitoried entity types
-
-
-def get_dynatrace_entity_types(tenant, api_token, verify=True):
-    """Get all monitored entity types from the API v2.
-
-    Args:
-        tenant (str): Dynatrace tenant.
-        api_token (str): Dynatrace API token.
-
-    Returns:
-        json: JSON response from the API.
-    """
-    # Set the headers
-    headers = {
-        'Authorization': 'Api-Token {}'.format(api_token),
-        'version': 'Splunk_TA_Dynatrace'
-    }
-    # Set the URL
-    url = tenant + '/api/v2/entityTypes'
-    # Get the entity types
-    response = requests.get(url, headers=headers, verify=verify)
-    # Return the response
-    return response.json()
-
-
-def get_dynatrace_entity(tenant, api_token, time=None, page_size=100, verify=True):
-    """Get Dynatrace entities from the API v2.
-
-    Args:
-        tenant (str): Dynatrace
-        api_token (str): Dynatrace API token
-        time (str): Time range for the problems. Defaults to None.
-        page_size (int): Number of problems to return. Defaults to 100.
-
-    Returns:
-        json: JSON response from the API.
-    """
-    # Set the headers
-    headers = {
-        'Authorization': 'Api-Token {}'.format(api_token),
-        'version': 'Splunk_TA_Dynatrace'
-    }
-    # Set the parameters
-    if time is None:
-        parameters = {
-            'pageSize': page_size
-        }
-    else:
-        parameters = {
-            'from': time,
-            'pageSize': page_size
-        }
-    # Set the URL
-    url = tenant + '/api/v2/entities'
-    # Get the problems
-    response = requests.get(url, headers=headers, params=parameters, verify=verify)
-    # Return the response
-    return response.json()
-
-# List all dynatrace entities
-# TODO: Generalize this function to accept any endpoint
-
-def get_all_dynatrace_entities(tenant, api_token, entity_selector, time=None, page_size=100, verify=True):
-    """Get all Dynatrace entities.
-
-    Args:
-        tenant (str): Dynatrace tenant.
-        api_token (str): Dynatrace API token.
-        entity_selector (str): Entity selector.
-        time (str): Time range for the problems. Defaults to None.
-        page_size (int): Number of problems to return. Defaults to 100.
-
-    Returns:
-        json: List of all Dynatrace entities.
-    """
-    # Create the list of entities
-    entities = []
-    # Get the first page of entities
-    response = get_dynatrace_entity(
-        tenant, api_token, time=time, page_size=page_size, verify=verify)
-    # Loop through the entities
-    for entity in response['values']:
-        # Check if the entity matches the entity selector
-        if entity_selector in entity['entityId']:
-            # Add the entity to the list of entities
-            entities.append(entity)
-    # Get the next page of entities
-    next_page = response['nextPageKey']
-    # Loop while there is a next page
-    while next_page is not None:
-        # Get the next page of entities
-        response = get_dynatrace_entity(
-            tenant, api_token, time=time, page_size=page_size, next_page=next_page, verify=verify)
-        # Loop through the entities
-        for entity in response['values']:
-            # Check if the entity matches the entity selector
-            if entity_selector in entity['entityId']:
-                # Add the entity to the list of entities
-                entities.append(entity)
-        # Get the next page of entities
-        next_page = response['nextPageKey']
-    # Return the entities
-    return entities
-
-# TODO: Generalize this function to only deal with paramater building
-# List all metrics
-# https://www.dynatrace.com/support/help/dynatrace-api/environment-api/metric-v2/examples/list-all-metrics
-def get_all_dynatrace_metrics(tenant, api_token, time=None, page_size=100, verify=True):
-    """Get Dynatrace metrics from the API v2.
-
-    Args:
-        tenant (str): Dynatrace 
-        api_token (str): Dynatrace API token
-        time (str): Time range for the problems. Defaults to None.
-        page_size (int): Number of problems to return. Defaults to 100.
-
-    Returns:
-        json: JSON response from the API.
-    """
-
-    # Set the headers
-    headers = {
-        'Authorization': 'Api-Token {}'.format(api_token),
-        'version': 'Splunk_TA_Dynatrace'
-    }
-
-    # Set the parameters
-    if time is None:
-        parameters = {
-            'pageSize': page_size
-        }
-    else:
-        parameters = {
-            'from': time,
-            'pageSize': page_size
-        }
-
-    # Set the URL
-    url = tenant + '/api/v2/metrics'
-
-    # Add paramaters to get all metrics
-    parameters['fields'] = 'displayName,unit,aggregationTypes'
-
-    response = requests.get(url, headers=headers, params=parameters, verify=verify)
-
-    # Return the response
-    return response.json()
-
-
-# Get Dynatrace metrics from api v2
-def get_dynatrace_metrics(tenant, api_token, metric_selector, time=None, page_size=100, verify=True):
-    """Get Dynatrace metrics from the API v2.
-
-    Args:
-        tenant (str): Dynatrace
-        api_token (str): Dynatrace API token
-        metric_selector (str): Metric selector.
-        time (str): Time range for the problems. Defaults to None.
-        page_size (int): Number of problems to return. Defaults to 100.
-
-    Returns: 
-        json: JSON response from the API.
-    """
-    # Set the headers
-    headers = {
-        'Authorization': 'Api-Token {}'.format(api_token),
-        'version': 'Splunk_TA_Dynatrace'
-    }
-    # Set the parameters
-    if time is None:
-        parameters = {
-            'metricSelector': metric_selector,
-            'pageSize': page_size
-        }
-    else:
-        parameters = {
-            'metricSelector': metric_selector,
-            'from': time,
-            'pageSize': page_size
-        }
-    # Set the URL
-    url = tenant + '/api/v2/metrics/query'
-    # Get the problems
-    response = requests.get(url, headers=headers, params=parameters, verify=verify)
-    # Return the response
-    return response.json()
-
-# Get Dynatrace metrics descriptors from api v2
-
 
 def get_dynatrace_metrics_descriptors(tenant, api_token, metric_selector, time=None, page_size=100, verify=True):
     """Get Dynatrace metrics descriptors from the API v2.
@@ -383,25 +178,36 @@ def default_time():
     last_hour = {'written_since': f'{written_since}'}
     return last_hour
 
+def get_from_time(minutes=60):
+    """Calculate unix stamp n minutes ago. Return unix epoch time in milliseconds with no decimals"""
+    from_time = (datetime.datetime.now() - datetime.timedelta(minutes=minutes)).timestamp()
+
+    # Round to nearest millisecond
+    from_time = round(from_time * 1000)
+
+    # Return the time
+    return from_time
+
 
 def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_size=100, verify=True):
     """Get Dynatrace data from the API v2. 
 
     Args:
         endpoint (str): Dynatrace API endpoint.
-        tenant (str): Dynatrace
+        tenant (str): Dynatrace tenant URL.
         api_token (str): Dynatrace API token
         params (dict): Parameters for the API call. Defaults to {}.
         time (str): Time range for the problems. Defaults to None.
         page_size (int): Number of problems to return. Defaults to 100.
         verify (bool): Verify SSL certificate. Defaults to True.
 
-    Returns:
+    Yields:
         json: JSON response from the API.
     """
 
     parameters = {}
     results = {}
+    parsed_response = {}
     selector = v2_selectors[endpoint]
     endpoint = v2_endpoints[endpoint]
     # Set the headers
@@ -409,17 +215,23 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
         'Authorization': 'Api-Token {}'.format(api_token),
         'version': 'Splunk_TA_Dynatrace'
     }
-    # Set the parameters
-    # Add writtenSince to the parameters using default_time() as string
+    results = {}
 
-    # Some Dynatrace endpoints require a time range specified as "from" and "to" while others require "writtenSince"
-    params['pageSize'] = page_size
-    if time:
-        params['from'] = time.get('written_since')
-        del parameters['written_since']
-        del params['written_since']
+    # Check if selector is metrics, if so, use 'writtenSince' instead of 'from' as the time parameter
+    if time is not None:
+        if selector == 'metrics':
+            parameters['writtenSince'] = str(time)
+        else:
+            parameters['from'] = str(time)
+
+    if selector == 'metrics':
+        parameters['fields'] = 'unit,aggregationTypes'
+
+    # Add page size to parameters
+    parameters['pageSize'] = page_size
+
+    # Concatenate the parameters, probably not useful at the moment, but could be in the future
     if params:
-        # concatenate two dictionaries of http paramaters
         parameters = {**params, **parameters}
 
     # Set the URL
@@ -430,73 +242,38 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
         # If request doesn't have a 400 or greater error
         if response.status_code < 400:
             parsed_response = response.json()
-            results = response.json()[selector]
 
+            # Yield the first page of results
+            yield parsed_response[selector]
     except requests.exceptions.HTTPError as err:
         print(err)
 
-        # Keep pageing through the results
-        while ('nextPageKey' in parsed_response and parsed_response.get('nextPageKey') is not None):
-            parameters = {}
-            parsed_response = response.json()
-            print("Parsed Response: " + str(parsed_response.get('nextPageKey')))
+        # Keep paging through the results if they exist
+    while 'nextPageKey' in parsed_response and parsed_response.get('nextPageKey') is not None:
+        # Dynatrace API v2 requires ONLY the nextPageKey to be passed as a parameter
+        parameters = {'nextPageKey': parsed_response.get('nextPageKey')}
 
-            parameters['nextPageKey'] = parsed_response['nextPageKey']
-            print("Next page key", response.json()['nextPageKey'])
-
-            # Set nextpagekey as query parameter for next request
-
+        # Try to get the next page of results, if it fails, break out of the loop
+        try:
             response = requests.get(url, headers=headers, params=parameters, verify=verify)
-            test = response.json()
             parsed_response = response.json()
-            # print first result
-            print("First result", test[selector][0])
-            results.extend(response.json()[selector])
-            print("Results", len(results))
-            print("Total count", total_count)
+            yield parsed_response[selector]
 
-            # Parse and store response in results
+        except requests.exceptions.HTTPError as err:
+            print(err)
+            break
 
-
-            # Check if nextPageKey is in the response or is null
-            if ('nextPageKey' not in parsed_response or parsed_response.get('nextPageKey') is None):
-                break
-
-        # Remove the nextPageKey from the results
-
-        print("deleted nextPageKey")
-
-    print(results)
-    # Return the response
-    return results
+        # Check if nextPageKey is in the response or is null
+        # Need to do this because Python doesn't have a do-while loop
+        if 'nextPageKey' not in parsed_response or parsed_response.get('nextPageKey') is None:
+            break
 
 # Assign secrets to variables
 #dynatrace_tenant = os.environ['dynatrace_tenant']
 #dynatrace_api_token = os.environ['dynatrace_api_token']
-v2_endpoints = {"metrics": "/api/v2/metrics", 
-                "metrics_query": "/api/v2/metrics/query",
-                "metrics_descriptors": "/api/v2/metrics/query/descriptors",
-                "metrics_timeseries": "/api/v2/metrics/query/timeseries",
-                "metrics_timeseries_descriptors": "/api/v2/metrics/query/timeseries/descriptors",
-                "metrics_timeseries_aggregates": "/api/v2/metrics/query/timeseries/aggregate",
-                "entities": "/api/v2/entities",
-                "problems": "/api/v2/problems",
-                "events": "/api/v2/events",
-                "synthetic_locations": "/api/v2/synthetic/locations",
-                "synthetic_tests": "/api/v2/synthetic/tests",
-                "synthetic_tests_results": "/api/v2/synthetic/tests/results"
-}
 
-v2_params = {'metrics':
-             {'nextPageKey': 'nextPageKey',
-                 'metricSelector': 'metricSelector',
-                 'text': 'text',
-                 'fields': ['fields'],
-                 'writtenSince': 'writtenSince',
-                 'metadataSelector': 'metadataSelector'
-              },
-              'writtenSince': 'writtenSince'
-              }
+
+
 
 v2_selectors = {'metrics': 'metrics',
 'entities': 'entities',
@@ -504,9 +281,6 @@ v2_selectors = {'metrics': 'metrics',
 'events': 'events',
 'synthetic_locations': 'locations'}
 
-secrets = parse_secrets_env()
-dynatrace_tenant = secrets['dynatrace_tenant']
-dynatrace_api_token = secrets['dynatrace_api_token']
-
-written_since = (datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp()
-paged_data = get_dynatrace_data('metrics', dynatrace_tenant, dynatrace_api_token, page_size=500, verify=False)
+# secrets = parse_secrets_env()
+# dynatrace_tenant = secrets['dynatrace_tenant']
+# dynatrace_api_token = secrets['dynatrace_api_token']
