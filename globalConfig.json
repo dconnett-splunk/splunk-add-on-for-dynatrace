@@ -2,7 +2,7 @@
     "meta": {
         "name": "Splunk_TA_Dynatrace",
         "displayName": "Dynatrace Add-on for Splunk",
-        "version": "1.3.0",
+        "version": "1.1.3",
         "restRoot": "Splunk_TA_Dynatrace",
         "schemaVersion": "2.0.0"
     },
@@ -652,7 +652,7 @@
                                         "value": "synthetic_tests",
                                         "label": "Synthetic Tests"
                                     },
-                                                                        {
+                                    {
                                         "value": "synthetic_tests_results",
                                         "label": "Synthetic Tests Results"
                                     }
@@ -1055,6 +1055,21 @@
                                         "label": "2 Hours"
                                     }
                                 ]
+                            }
+                        },
+                        {
+                            "field": "dynatrace_metrics",
+                            "label": "Dynatrace Metrics",
+                            "help": "https://www.dynatrace.com/support/help/dynatrace-api/environment-api/metric-v2/get-available-metrics/",
+                            "required": true,
+                            "type": "multipleSelect",
+                            "options": {
+                                "disabledOnEdit": true,
+                                "dependencies":  [
+                                        "dynatrace_account",
+                                        "subscribed_metrics"
+                                ],
+                                "endpointUrl": "data/metrics"
                             }
                         },
                         {

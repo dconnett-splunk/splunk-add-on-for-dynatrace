@@ -9,6 +9,7 @@ import traceback
 import logging
 import logging.handlers
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 """util.py: This module contains utility functions for the package. These functions are used by the package's scripts.
@@ -45,12 +46,20 @@ v2_endpoints = {'metrics': '/api/v2/metrics',
                 'synthetic_tests_results': '/api/v2/synthetic/tests/results'}
 
 v2_params = {'metrics':
-             {'nextPageKey': 'nextPageKey',
-              'metricSelector': 'metricSelector',
-              'text': 'text',
-              'fields': ['fields'],
-              'writtenSince': 'writtenSince',
-              'metadataSelector': 'metadataSelector'}}
+                 {'nextPageKey': 'nextPageKey',
+                  'metricSelector': 'metricSelector',
+                  'text': 'text',
+                  'fields': ['fields'],
+                  'writtenSince': 'writtenSince',
+                  'metadataSelector': 'metadataSelector'},
+             'metrics_query':
+                 {'metricSelector': 'metricSelector',
+                  'resolution': 'resolution',
+                  'entitySelector': 'entitySelector',
+                  'mzSelector': 'mzSelector',
+                  'from': 'from',
+                  'to': 'to'}}
+
 
 # Get current working directory
 
@@ -62,6 +71,7 @@ def get_current_working_directory():
         str: Current working directory.
     """
     return os.getcwd()
+
 
 # Create managed uri given domain and environment id
 
@@ -78,6 +88,7 @@ def get_dynatrace_managed_uri(domain, environment_id):
     """
     return dynatrace_managed_uri_v2.format(your_domain=domain, your_environment_id=environment_id)
 
+
 # Create SaaS uri given environment id
 
 
@@ -91,6 +102,7 @@ def get_dynatrace_saas_uri(environment_id):
         str: SaaS URI.
     """
     return dynatrace_saas_uri_v2.format(your_environment_id=environment_id)
+
 
 # Create environment active gate uri given domain and environment id
 
@@ -107,6 +119,7 @@ def get_dynatrace_environment_active_gate_uri(domain, environment_id):
     """
     return dynatrace_environment_active_gate_v2.format(your_domain=domain, your_environment_id=environment_id)
 
+
 # Parse secrets.env file
 
 
@@ -118,11 +131,11 @@ def parse_secrets_env():
     """
     # Create the secrets dictionary
     secrets = {}
-    print(get_current_working_directory())
+    print("Current working dir:", get_current_working_directory())
     # Check if the secrets.env file exists
-    if os.path.exists('../../secrets.env'):
+    if os.path.exists('../../../../secrets.env'):
         # Open the secrets.env file
-        with open('../../secrets.env') as f:
+        with open('../../../../secrets.env') as f:
             # Loop through each line
             for line in f:
                 # Split the line into key/value pairs
@@ -173,10 +186,12 @@ def get_dynatrace_metrics_descriptors(tenant, api_token, metric_selector, time=N
     # Return the response
     return response.json()
 
+
 def default_time():
     written_since = (datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp()
     last_hour = {'written_since': f'{written_since}'}
     return last_hour
+
 
 def get_from_time(minutes=60):
     """Calculate unix stamp n minutes ago. Return unix epoch time in milliseconds with no decimals"""
@@ -218,6 +233,7 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
     results = {}
 
     # Check if selector is metrics, if so, use 'writtenSince' instead of 'from' as the time parameter
+    # Dyantrace uses different time parameters for different endpoints
     if time is not None:
         if selector == 'metrics':
             parameters['writtenSince'] = str(time)
@@ -268,19 +284,130 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
         if 'nextPageKey' not in parsed_response or parsed_response.get('nextPageKey') is None:
             break
 
+
+def get_dynatrace_data(endpoint_name, tenant, api_token, params={}, time=None, page_size=None, verify=True):
+    """Get Dynatrace data from the API v2.
+
+    Args:
+        endpoint_name (str): Dynatrace API endpoint name. E.g. 'problems'.
+        tenant (str): Dynatrace tenant URL.
+        api_token (str): Dynatrace API token
+        params (dict): Parameters for the API call. Defaults to {}.
+        time (str): Time range for the problems. Defaults to None.
+        page_size (int): Number of problems to return. Defaults to 100.
+        verify (bool): Verify SSL certificate. Defaults to True.
+
+    Yields:
+        json: JSON response from the API.
+    """
+
+    endpoint_uri = v2_endpoints[endpoint_name]
+    selector = v2_selectors[endpoint_name]
+    url = tenant + endpoint_uri
+    headers = {
+        'Authorization': 'Api-Token {}'.format(api_token),
+        'version': 'Splunk_TA_Dynatrace'
+    }
+    params = {
+        **params,
+        **({'fields': 'unit,aggregationTypes'} if 'metrics' in selector else {}),
+        **({'writtenSince': str(time)} if 'metrics' in selector and time else {'from': str(time)} if time else {}),
+    }
+    if page_size:
+        params['pageSize'] = page_size
+
+    while True:
+        try:
+            response = requests.get(url, headers=headers, params=params, verify=verify)
+            response.raise_for_status()
+            parsed_response = response.json()
+            yield parsed_response[selector]
+
+            if 'nextPageKey' not in parsed_response or parsed_response['nextPageKey'] is None:
+                break
+            params['nextPageKey'] = parsed_response['nextPageKey']
+
+        except requests.exceptions.HTTPError as err:
+            print(err)
+            break
+
+
+def get_metric_descriptors(tenant, api_token, verify=True):
+    """Get all metric descriptors from the Dynatrace API v2.
+
+    Args:
+        tenant (str): Dynatrace tenant URL.
+        api_token (str): Dynatrace API token.
+        verify (bool): Verify SSL certificate. Defaults to True.
+
+    Returns:
+        dict: JSON response from the API containing all metric descriptors.
+    """
+    endpoint = v2_endpoints['metrics_descriptors']
+    url = tenant + endpoint
+    headers = {
+        'Authorization': 'Api-Token {}'.format(api_token),
+        'version': 'Splunk_TA_Dynatrace'
+    }
+    response = requests.get(url, headers=headers, verify=verify)
+    if response.status_code < 400:
+        return response.json()
+    else:
+        print('Error retrieving metric descriptors:', response.content)
+        return None
+
+
+import requests
+
+
+def query_timeseries_data(metric_id, tenant, api_token, start_time, end_time, resolution='1min', verify=True):
+    """Query timeseries data for a specific metric from the Dynatrace API v2.
+
+    Args:
+        metric_id (str): The ID of the metric to query.
+        tenant (str): Dynatrace tenant URL.
+        api_token (str): Dynatrace API token.
+        start_time (str): The start time of the query in ISO 8601 format.
+        end_time (str): The end time of the query in ISO 8601 format.
+        resolution (str): The resolution of the data. Defaults to '1min'.
+        verify (bool): Verify SSL certificate. Defaults to True.
+
+    Returns:
+        dict: JSON response from the API containing timeseries data.
+    """
+    endpoint = '/api/v2/metrics/query'
+    url = tenant + endpoint
+    headers = {
+        'Authorization': 'Api-Token {}'.format(api_token),
+        'version': 'Splunk_TA_Dynatrace'
+    }
+    query = {
+        'queryMode': 'series',
+        'metricSelector': 'metricId:{}'.format(metric_id),
+        'resolution': resolution,
+        'startTimestamp': start_time,
+        'endTimestamp': end_time
+    }
+    response = requests.get(url, headers=headers, json=query, verify=verify)
+    if response.status_code < 400:
+        return response.json()
+    else:
+        print('Error querying timeseries data:', response.content)
+        return None
+
+
 # Assign secrets to variables
-#dynatrace_tenant = os.environ['dynatrace_tenant']
-#dynatrace_api_token = os.environ['dynatrace_api_token']
-
-
+# dynatrace_tenant = os.environ['dynatrace_tenant']
+# dynatrace_api_token = os.environ['dynatrace_api_token']
 
 
 v2_selectors = {'metrics': 'metrics',
-'entities': 'entities',
-'problems': 'problems',
-'events': 'events',
-'synthetic_locations': 'locations'}
+                'entities': 'entities',
+                'problems': 'problems',
+                'events': 'events',
+                'synthetic_locations': 'locations',
+                'metrics_query': 'result'}
 
-# secrets = parse_secrets_env()
-# dynatrace_tenant = secrets['dynatrace_tenant']
-# dynatrace_api_token = secrets['dynatrace_api_token']
+secrets = parse_secrets_env()
+dynatrace_tenant = secrets['dynatrace_tenant']
+dynatrace_api_token = secrets['dynatrace_api_token']
