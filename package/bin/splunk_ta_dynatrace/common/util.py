@@ -28,6 +28,9 @@ __email__ = "dconnett@splunk.com"
 __status__ = "Development"
 __license__ = "Splunk General Terms"
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+package_dir = os.path.dirname(script_dir)
+
 dynatrace_managed_uri_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2'
 dynatrace_saas_uri_v2 = 'https://{your-enviroment-id}.live.dynatrace.com/api/v2'
 dynatrace_environment_active_gate_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2'
@@ -133,16 +136,15 @@ def parse_secrets_env():
     secrets = {}
     print("Current working dir:", get_current_working_directory())
     # Check if the secrets.env file exists
-    if os.path.exists('../../../../secrets.env'):
-        # Open the secrets.env file
-        with open('../../../../secrets.env') as f:
-            # Loop through each line
+    # Get the path to the current script
+
+    # Construct a path relative to the script directory
+    secrets_file = os.path.join(package_dir, 'secrets.env')
+    if os.path.exists(secrets_file):
+        with open(secrets_file) as f:
             for line in f:
-                # Split the line into key/value pairs
                 (key, val) = line.split('=')
-                # Add the key/value pair to the secrets dictionary
                 secrets[key] = val.strip()
-    # Return the secrets
     return secrets
 
 

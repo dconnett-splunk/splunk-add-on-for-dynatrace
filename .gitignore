@@ -52,4 +52,4 @@ src
 !package/appserver/static/js/build
 *.log
 output/
-secrets.env
+package/bin/splunk_ta_dynatrace/secrets.env

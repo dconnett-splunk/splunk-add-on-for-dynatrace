@@ -4,6 +4,7 @@ from itertools import *
 
 # Get time one hour ago Human-readable format of 2021-01-25T05:57:01.123+01:00
 
+get_current_working_directory()
 # get time from one hour ago in UTC milliseconds
 end_time = datetime.datetime.now().isoformat() + 'Z'
 start_time = (datetime.datetime.now() - datetime.timedelta(hours=1)).isoformat() + 'Z'
