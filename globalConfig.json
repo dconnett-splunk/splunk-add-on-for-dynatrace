@@ -284,6 +284,10 @@
                         "label": "Dynatrace Metric"
                     },
                     {
+                        "field": "metric_selector",
+                        "label": "Metric Selector"
+                    },
+                    {
                         "field": "aggregation_type",
                         "label": "Aggregation Type"
                     }
@@ -1062,15 +1066,178 @@
                             "label": "Dynatrace Metrics",
                             "help": "https://www.dynatrace.com/support/help/dynatrace-api/environment-api/metric-v2/get-available-metrics/",
                             "required": true,
-                            "type": "multipleSelect",
+                            "type": "textarea",
                             "options": {
+                                "rowsMin": 0,
+                                "rowsMax": 10000,
                                 "disabledOnEdit": true,
-                                "dependencies":  [
-                                        "dynatrace_account",
-                                        "subscribed_metrics"
-                                ],
-                                "endpointUrl": "data/metrics"
+                                "endpointUrl": "data/metrics",
+                                "placeholder": "builtin:host.cpu.user:sort(value(max,descending)):limit(10)"
                             }
+                        },
+                        {
+                            "type": "file",
+                            "label": "Metric Selector File",
+                            "help": "Upload a file with a list of metrics to be collected. The file should contain one metric per line. The metric selector file will be used if the metric selector list is empty.",
+                            "field": "metric_selector",
+                            "options": {
+                                "fileSupportMessage": "Support message",
+                                "supportedFileTypes": [
+                                    "txt"
+                                ],
+                                "maxFileSize": 10000
+                            },
+                            "encrypted": false,
+                            "required": true
+                        },
+                        {
+                            "field": "ssl_certificate_verification",
+                            "label": "SSL Certificate Verification",
+                            "help": "",
+                            "required": false,
+                            "type": "checkbox",
+                            "defaultValue": true
+                        }
+                    ]
+                },
+                {
+                    "template": "input_with_helper",
+                    "name": "dynatrace_timeseries_metrics_v2",
+                    "title": "Dynatrace Timeseries Metrics",
+                    "entity": [
+                        {
+                            "field": "name",
+                            "label": "Name",
+                            "type": "text",
+                            "help": "Enter a unique name for the data input",
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "pattern": "^[a-zA-Z]\\w*$",
+                                    "errorMsg": "Input Name must start with a letter and followed by alphabetic letters, digits or underscores."
+                                },
+                                {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 100,
+                                    "errorMsg": "Length of input name should be between 1 and 100"
+                                }
+                            ]
+                        },
+                        {
+                            "field": "interval",
+                            "label": "Interval",
+                            "type": "text",
+                            "required": true,
+                            "help": "Time interval of input in seconds.",
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
+                                    "errorMsg": "Interval must be an integer."
+                                }
+                            ]
+                        },
+                        {
+                            "field": "index",
+                            "label": "Index",
+                            "type": "singleSelect",
+                            "defaultValue": "default",
+                            "options": {
+                                "endpointUrl": "data/indexes",
+                                "createSearchChoice": true,
+                                "denyList": "^_.*$"
+                            },
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80,
+                                    "errorMsg": "Length of index name should be between 1 and 80."
+                                }
+                            ]
+                        },
+                        {
+                            "field": "dynatrace_account",
+                            "label": "Dynatrace Account",
+                            "help": "",
+                            "required": true,
+                            "type": "singleSelect",
+                            "options": {
+                                "referenceName": "account"
+                            }
+                        },
+                        {
+                            "field": "dynatrace_collection_interval",
+                            "label": "Dynatrace Collection Interval",
+                            "help": "Relative timeframe passed to Dynatrace API. Timeframe of data to be collected at each polling interval.",
+                            "required": true,
+                            "type": "singleSelect",
+                            "defaultValue": "5mins",
+                            "options": {
+                                "disableSearch": true,
+                                "autoCompleteFields": [
+                                    {
+                                        "value": "min",
+                                        "label": "1 Minute"
+                                    },
+                                    {
+                                        "value": "5mins",
+                                        "label": "5  Minutes"
+                                    },
+                                    {
+                                        "value": "10mins",
+                                        "label": "10  Minutes"
+                                    },
+                                    {
+                                        "value": "15mins",
+                                        "label": "15  Minutes"
+                                    },
+                                    {
+                                        "value": "30mins",
+                                        "label": "30  Minutes"
+                                    },
+                                    {
+                                        "value": "hour",
+                                        "label": "1 Hour"
+                                    },
+                                    {
+                                        "value": "2hours",
+                                        "label": "2 Hours"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "field": "dynatrace_metrics_v2",
+                            "label": "Dynatrace Metrics",
+                            "help": "https://www.dynatrace.com/support/help/dynatrace-api/environment-api/metric-v2/get-available-metrics/",
+                            "required": true,
+                            "type": "textarea",
+                            "options": {
+                                "rowsMin": 0,
+                                "rowsMax": 10000,
+                                "disabledOnEdit": true,
+                                "endpointUrl": "data/metrics",
+                                "placeholder": "builtin:host.cpu.user:sort(value(max,descending)):limit(10)"
+                            }
+                        },
+                        {
+                            "type": "file",
+                            "label": "Metric Selector File",
+                            "help": "Upload a file with a list of metrics to be collected. The file should contain one metric per line. The metric selector file will be used if the metric selector list is empty.",
+                            "field": "metric_selector_file",
+                            "options": {
+                                "fileSupportMessage": "Support message",
+                                "supportedFileTypes": [
+                                    "txt"
+                                ],
+                                "maxFileSize": 10000
+                            },
+                            "encrypted": false,
+                            "required": true
                         },
                         {
                             "field": "ssl_certificate_verification",

@@ -410,6 +410,56 @@ v2_selectors = {'metrics': 'metrics',
                 'synthetic_locations': 'locations',
                 'metrics_query': 'result'}
 
-secrets = parse_secrets_env()
-dynatrace_tenant = secrets['dynatrace_tenant']
-dynatrace_api_token = secrets['dynatrace_api_token']
+# secrets = parse_secrets_env()
+# dynatrace_tenant = secrets['dynatrace_tenant']
+# dynatrace_api_token = secrets['dynatrace_api_token']
+
+def parse_metric_selector(metric_selectors):
+    """Parse a list of metric selectors into a string for the API call.
+
+    Args:
+        metric_selectors (list): A list of metric selectors.
+
+    Returns:
+        str: A string of metric selectors.
+    """
+    metric_selector = ''
+    for selector in metric_selectors:
+        metric_selector += selector + '\n'
+
+    return metric_selector[:-1]
+
+
+def parse_metric_selectors(file_path):
+    # Parses the metric selectors from the given file path, and returns them as a list of strings.
+    parsed_metric_selectors = []
+    current_line = ""
+
+    with open(file_path, 'r') as f:
+        for line in f:
+            stripped_line = line.strip()
+            if not stripped_line:
+                continue  # Ignore empty lines
+
+            # If the line starts with a non-whitespace character, it's a new metric selector
+            if line[0] != ' ' and line[0] != '\t':
+                if current_line:
+                    parsed_metric_selectors.append(current_line)
+                current_line = stripped_line
+            else:
+                # If the line starts with a whitespace character, it's a continuation of the previous line
+                current_line += " " + stripped_line
+
+    if current_line:  # Add the last metric selector
+        parsed_metric_selectors.append(current_line)
+
+    return parsed_metric_selectors
+
+
+# Usage example:
+file_path = 'metric_selectors.txt'
+parsed_metric_selectors = parse_metric_selectors(file_path)
+
+# Print parsed metric selectors:
+for metric_selector in parsed_metric_selectors:
+    print(metric_selector)
