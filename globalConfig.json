@@ -1076,21 +1076,6 @@
                             }
                         },
                         {
-                            "type": "file",
-                            "label": "Metric Selector File",
-                            "help": "Upload a file with a list of metrics to be collected. The file should contain one metric per line. The metric selector file will be used if the metric selector list is empty.",
-                            "field": "metric_selector",
-                            "options": {
-                                "fileSupportMessage": "Support message",
-                                "supportedFileTypes": [
-                                    "txt"
-                                ],
-                                "maxFileSize": 10000
-                            },
-                            "encrypted": false,
-                            "required": true
-                        },
-                        {
                             "field": "ssl_certificate_verification",
                             "label": "SSL Certificate Verification",
                             "help": "",
@@ -1103,7 +1088,7 @@
                 {
                     "template": "input_with_helper",
                     "name": "dynatrace_timeseries_metrics_v2",
-                    "title": "Dynatrace Timeseries Metrics",
+                    "title": "Dynatrace Timeseries Metrics API v2",
                     "entity": [
                         {
                             "field": "name",
@@ -1211,7 +1196,7 @@
                             }
                         },
                         {
-                            "field": "dynatrace_metrics_v2",
+                            "field": "dynatrace_metrics_v2_textarea",
                             "label": "Dynatrace Metrics",
                             "help": "https://www.dynatrace.com/support/help/dynatrace-api/environment-api/metric-v2/get-available-metrics/",
                             "required": true,
@@ -1237,7 +1222,7 @@
                                 "maxFileSize": 10000
                             },
                             "encrypted": false,
-                            "required": true
+                            "required": false 
                         },
                         {
                             "field": "ssl_certificate_verification",

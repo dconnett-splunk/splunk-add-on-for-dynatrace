@@ -48,13 +48,13 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
 
     def __init__(self):
         use_single_instance = False
-        super(ModInputdynatrace_timeseries_metrics_v2, self).__init__("splunk_ta_dynatrace", "dynatrace_timeseries_metrics", use_single_instance)
+        super(ModInputdynatrace_timeseries_metrics_v2, self).__init__("splunk_ta_dynatrace", "dynatrace_timeseries_metrics_v2", use_single_instance)
         self.global_checkbox_fields = None
 
     def get_scheme(self):
         """overloaded splunklib modularinput method"""
         scheme = super(ModInputdynatrace_timeseries_metrics_v2, self).get_scheme()
-        scheme.title = ("Dynatrace Timeseries Metrics")
+        scheme.title = ("Dynatrace Timeseries Metrics API v2")
         scheme.description = ("Go to the add-on\'s configuration UI and configure modular inputs under the Inputs menu.")
         scheme.use_external_validation = True
         scheme.streaming_mode_xml = True
@@ -165,16 +165,6 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                               'com.dynatrace.builtin:webcheck.performance.actionduration'
                             ]
     
-    # Test metric file and metric text box parameters
-        metric_selector_file = helper.get_arg('metric_selector_file')
-        metric_selector_list = helper.get_arg('dynatrace_metrics_v2')
-    def get_metric_list(self, metric_selector_list):
-        # Get list of metrics from selector
-        if metric_selector_list:
-            metric_list = metric_selector_list.split(',')
-        else:
-            metric_list = []
-        return metric_list
         
         
 

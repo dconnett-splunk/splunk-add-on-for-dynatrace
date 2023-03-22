@@ -456,10 +456,38 @@ def parse_metric_selectors(file_path):
     return parsed_metric_selectors
 
 
+def parse_metric_selectors_text_area(textarea_input):
+    # Parses the metric selectors from the given textarea input, and returns them as a list of strings.
+    parsed_metric_selectors = []
+    current_line = ""
+
+    # Split textarea input into lines
+    lines = textarea_input.splitlines()
+
+    for line in lines:
+        stripped_line = line.strip()
+        if not stripped_line:
+            continue  # Ignore empty lines
+
+        # If the line starts with a non-whitespace character, it's a new metric selector
+        if line[0] != ' ' and line[0] != '\t':
+            if current_line:
+                parsed_metric_selectors.append(current_line)
+            current_line = stripped_line
+        else:
+            # If the line starts with a whitespace character, it's a continuation of the previous line
+            current_line += " " + stripped_line
+
+    if current_line:  # Add the last metric selector
+        parsed_metric_selectors.append(current_line)
+
+    return parsed_metric_selectors
+
+
 # Usage example:
-file_path = 'metric_selectors.txt'
-parsed_metric_selectors = parse_metric_selectors(file_path)
+# file_path = 'metric_selectors.txt'
+# parsed_metric_selectors = parse_metric_selectors(file_path)
 
 # Print parsed metric selectors:
-for metric_selector in parsed_metric_selectors:
-    print(metric_selector)
+# for metric_selector in parsed_metric_selectors:
+#     print(metric_selector)
