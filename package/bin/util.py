@@ -476,7 +476,7 @@ def parse_metric_selectors_text_area(textarea_input):
             current_line = stripped_line
         else:
             # If the line starts with a whitespace character, it's a continuation of the previous line
-            current_line += " " + stripped_line
+            current_line += stripped_line
 
     if current_line:  # Add the last metric selector
         parsed_metric_selectors.append(current_line)

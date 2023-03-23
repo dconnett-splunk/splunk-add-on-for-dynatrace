@@ -135,12 +135,31 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         time_range = util.get_time_range(opt_dynatrace_collection_interval_minutes)
 
         # get Dynatrace data given from util.py
+        # dynatrace_data = util.get_dynatrace_data(endpoint,
+        #                                          dynatrace_tenant_input,
+        #                                          opt_dynatrace_api_token,
+        #                                          time=time_range,
+        #                                          ssl_certificate_verification=opt_ssl_certificate_verification)
+        # Get Dynatrace data from util.py
         dynatrace_data = util.get_dynatrace_data(endpoint,
                                                  dynatrace_tenant_input,
                                                  opt_dynatrace_api_token,
                                                  time=time_range,
                                                  ssl_certificate_verification=opt_ssl_certificate_verification)
-        
+
+        for entity in dynatrace_data:
+            eventLastSeenTime = entity["lastSeenTimestamp"] / 1000
+            entity.update({"timestamp": eventLastSeenTime})
+            entity['endpoint'] = endpoint
+            serialized = json.dumps(entity, sort_keys=True)
+            event = helper.new_event(data=serialized, time=eventLastSeenTime, host=None, index=None, source=None,
+                                     sourcetype=None, done=True, unbroken=True)
+            ew.write_event(event)
+
+        # Save the name of the Dynatrace Server that this data came from
+        event = helper.new_event(data='{"dynatrace_server":"' + opt_dynatrace_tenant + '"}', host=None, index=None,
+                                 source=None, sourcetype=None, done=True, unbroken=True)
+        ew.write_event(event)
 
 
 

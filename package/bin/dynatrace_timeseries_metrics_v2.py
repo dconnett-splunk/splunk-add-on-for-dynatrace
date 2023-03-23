@@ -114,20 +114,39 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
     def collect_events(helper, ew):
         ''' Updated for Splunk 8 '''
         '''SSL Verification'''
+
+        # Log the start of the collect_events function
         helper.log_info('Beginning collect_events')
 
+        # Retrieve SSL certificate verification setting
         ssl_certificate = helper.get_arg('ssl_certificate_verification')
 
-        if ssl_certificate == True:
-            verify_ssl = True
-        else:
-            verify_ssl = False
+        # Set verify_ssl based on the ssl_certificate value
+        verify_ssl = True if ssl_certificate else False
 
+        # Retrieve Dynatrace account information
+        dynatrace_account_input = helper.get_arg("dynatrace_account")
+        dynatrace_tenant_input = dynatrace_account_input["username"]
+        opt_dynatrace_api_token = dynatrace_account_input["password"]
+
+        # Ensure the Dynatrace tenant URL starts with 'https://'
+        if dynatrace_tenant_input.startswith('https://'):
+            opt_dynatrace_tenant = dynatrace_tenant_input
+        elif dynatrace_tenant_input.startswith('http://'):
+            opt_dynatrace_tenant = dynatrace_tenant_input.replace('http://', 'https://')
+        else:
+            opt_dynatrace_tenant = 'https://' + dynatrace_tenant_input
+
+        # Log the verify_ssl value
         helper.log_info('verify_ssl: {}'.format(verify_ssl))
 
-        '''
-        Force HTTPS
-        '''
+        # Retrieve Dynatrace collection interval and other arguments
+        opt_dynatrace_collection_interval_minutes = helper.get_arg("dynatrace_collection_interval")
+        opt_dynatrace_collection_interval = helper.get_arg('dynatrace_collection_interval')
+        opt_dynatrace_entity_endpoints = helper.get_arg('entity_endpoints')
+        opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
+        dynatrace_metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
+
 
         COUNT = 'COUNT'
         AVERAGE = 'AVG'
@@ -176,12 +195,31 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
 
 
         # Get textbox metrics input
-        dynatrace_metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
+        # dynatrace_metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
+        # for metric_selector in util.parse_metric_selectors_text_area(dynatrace_metric_selectors):
+        #     print(metric_selector)
+        #     helper.log_info("Processing Metric Selector: %s" % metric_selector)
+
         for metric_selector in util.parse_metric_selectors_text_area(dynatrace_metric_selectors):
-            print(metric_selector)
             helper.log_info("Processing Metric Selector: %s" % metric_selector)
 
+            # Set up parameters for the API call
+            params = {
+                'metricSelector': metric_selector,
+                'from': 'now-{}m'.format(opt_dynatrace_collection_interval)
+            }
 
+            # Get Dynatrace data using the 'get_dynatrace_data' function from util.py
+            dynatrace_data = util.get_dynatrace_data('metrics',
+                                                     opt_dynatrace_tenant,
+                                                     opt_dynatrace_api_token,
+                                                     params=params,
+                                                     verify=opt_ssl_certificate_verification)
+
+            for timeseries_data in dynatrace_data:
+                serialized = json.dumps(timeseries_data, sort_keys=True)
+                event = helper.new_event(data=serialized, source=None, index=None, sourcetype=None)
+                ew.write_event(event)
 
     def get_account_fields(self):
         account_fields= []
