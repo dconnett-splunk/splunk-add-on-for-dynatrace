@@ -1196,7 +1196,7 @@
                             }
                         },
                         {
-                            "field": "dynatrace_metrics_v2_textarea",
+                            "field": "dynatrace_metric_selectors_v2_textarea",
                             "label": "Dynatrace Metrics",
                             "help": "https://www.dynatrace.com/support/help/dynatrace-api/environment-api/metric-v2/get-available-metrics/",
                             "required": true,
@@ -1205,24 +1205,8 @@
                                 "rowsMin": 0,
                                 "rowsMax": 10000,
                                 "disabledOnEdit": true,
-                                "endpointUrl": "data/metrics",
                                 "placeholder": "builtin:host.cpu.user:sort(value(max,descending)):limit(10)"
                             }
-                        },
-                        {
-                            "type": "file",
-                            "label": "Metric Selector File",
-                            "help": "Upload a file with a list of metrics to be collected. The file should contain one metric per line. The metric selector file will be used if the metric selector list is empty.",
-                            "field": "metric_selector_file",
-                            "options": {
-                                "fileSupportMessage": "Support message",
-                                "supportedFileTypes": [
-                                    "txt"
-                                ],
-                                "maxFileSize": 10000
-                            },
-                            "encrypted": false,
-                            "required": false 
                         },
                         {
                             "field": "ssl_certificate_verification",

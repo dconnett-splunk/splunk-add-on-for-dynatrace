@@ -83,12 +83,6 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
                                          description="",
                                          required_on_create=False,
                                          required_on_edit=False))
-
-        scheme.add_argument(smi.Argument("dynatrace_metric_selectors_v2_textarea", title="Dynatrace Metric Selectors",
-                                            description="",
-                                            required_on_create=True,
-                                            required_on_edit=False))
-    
         return scheme
 
     def get_app_name(self):
@@ -148,11 +142,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
                                                  ssl_certificate_verification=opt_ssl_certificate_verification)
         
 
-        # Get textarea metrics input
-        dynatrace_metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
-        for metric_selector in util.parse_metric_selectors_from_textarea(dynatrace_metric_selectors):
-            print(metric_selector)
-            helper.log_info(metric_selector)
+
 
         # for endpoint in opt_dynatrace_entity_endpoints:
         #     response = helper.send_http_request(api_url + endpoint , "GET", headers=headers,  parameters=parameters, payload=None, cookies=None, verify=verify_ssl, cert=None, timeout=None, use_proxy=True)
