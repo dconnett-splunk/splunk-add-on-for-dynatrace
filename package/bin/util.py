@@ -9,6 +9,8 @@ import traceback
 import logging
 import logging.handlers
 import urllib3
+from typing import Union
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -45,7 +47,7 @@ v2_endpoints = {'metrics': '/api/v2/metrics',
                 'problems': '/api/v2/problems',
                 'events': '/api/v2/events',
                 'synthetic_locations': '/api/v2/synthetic/locations',
-                'synthetic_tests': '/api/v2/synthetic/tests',
+                'synthetic_tests': '/api/v2/synthetic/executions',
                 'synthetic_tests_results': '/api/v2/synthetic/tests/results'}
 
 v2_params = {'metrics':
@@ -140,6 +142,7 @@ def parse_secrets_env():
 
     # Construct a path relative to the script directory
     secrets_file = os.path.join(package_dir, 'secrets.env')
+    print("Secrets file:", secrets_file)
     if os.path.exists(secrets_file):
         with open(secrets_file) as f:
             for line in f:
@@ -195,7 +198,7 @@ def default_time():
     return last_hour
 
 
-def get_from_time(minutes=60):
+def get_from_time(minutes: int = 60) -> int:
     """Calculate unix stamp n minutes ago. Return unix epoch time in milliseconds with no decimals"""
     from_time = (datetime.datetime.now() - datetime.timedelta(minutes=minutes)).timestamp()
 
@@ -206,7 +209,7 @@ def get_from_time(minutes=60):
     return from_time
 
 
-def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_size=100, verify=True):
+def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_size=100, verify=True, opt_helper=None):
     """Get Dynatrace data from the API v2. 
 
     Args:
@@ -255,9 +258,17 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
     # Set the URL
     url = tenant + endpoint
     # Get the problems
+
+    # Log all the things
+    if opt_helper:
+        opt_helper.log_info(f'URL: {url}')
+        opt_helper.log_info(f'Headers: {headers}')
+        opt_helper.log_info(f'Params: {params}')
     try:
         response = requests.get(url, headers=headers, params=parameters, verify=verify)
         # If request doesn't have a 400 or greater error
+        if opt_helper:
+            opt_helper.log_info(f'Response: {response}')
         if response.status_code < 400:
             parsed_response = response.json()
 
@@ -265,6 +276,8 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
             yield parsed_response[selector]
     except requests.exceptions.HTTPError as err:
         print(err)
+        if opt_helper:
+            opt_helper.log_error(f'Error: {err}')
 
         # Keep paging through the results if they exist
     while 'nextPageKey' in parsed_response and parsed_response.get('nextPageKey') is not None:
@@ -279,6 +292,8 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
 
         except requests.exceptions.HTTPError as err:
             print(err)
+            if opt_helper:
+                opt_helper.log_error(f'Error: {err}')
             break
 
         # Check if nextPageKey is in the response or is null
@@ -287,7 +302,7 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
             break
 
 
-def get_dynatrace_data(endpoint_name, tenant, api_token, params={}, time=None, page_size=None, verify=True):
+def get_dynatrace_data(endpoint_name, tenant, api_token, params={}, time=None, page_size=None, verify=True, opt_helper=None):
     """Get Dynatrace data from the API v2.
 
     Args:
@@ -318,11 +333,21 @@ def get_dynatrace_data(endpoint_name, tenant, api_token, params={}, time=None, p
     if page_size:
         params['pageSize'] = page_size
 
+    # Log all the things
+    if opt_helper:
+        opt_helper.log_info(f'URL: {url}')
+        opt_helper.log_info(f'Params: {params}')
+
     while True:
         try:
             response = requests.get(url, headers=headers, params=params, verify=verify)
+            if opt_helper:
+                opt_helper.log_info(f'Response: {response.text}')
             response.raise_for_status()
             parsed_response = response.json()
+            if opt_helper:
+                opt_helper.log_info(f'Parsed response: {parsed_response}')
+                opt_helper.log_info(f'Selected response: {parsed_response[selector]}')
             yield parsed_response[selector]
 
             if 'nextPageKey' not in parsed_response or parsed_response['nextPageKey'] is None:
@@ -331,6 +356,8 @@ def get_dynatrace_data(endpoint_name, tenant, api_token, params={}, time=None, p
 
         except requests.exceptions.HTTPError as err:
             print(err)
+            if opt_helper:
+                opt_helper.log_error(f'Error: {err}')
             break
 
 
@@ -408,6 +435,8 @@ v2_selectors = {'metrics': 'metrics',
                 'problems': 'problems',
                 'events': 'events',
                 'synthetic_locations': 'locations',
+                'synthetic_tests': 'synthetic/executions',
+                'synthetic_nodes': 'synthetic/monitors',
                 'metrics_query': 'result'}
 
 # secrets = parse_secrets_env()

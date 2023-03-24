@@ -141,11 +141,18 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         helper.log_info('verify_ssl: {}'.format(verify_ssl))
 
         # Retrieve Dynatrace collection interval and other arguments
-        opt_dynatrace_collection_interval_minutes = helper.get_arg("dynatrace_collection_interval")
-        opt_dynatrace_collection_interval = helper.get_arg('dynatrace_collection_interval')
+        opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
+        opt_dynatrace_collection_interval = int(helper.get_arg('dynatrace_collection_interval'))
         opt_dynatrace_entity_endpoints = helper.get_arg('entity_endpoints')
         opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
         dynatrace_metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
+
+        # Log all previously retrieved arguments
+        helper.log_info('dynatrace_tenant: {}'.format(opt_dynatrace_tenant))
+        helper.log_info('dynatrace_collection_interval: {}'.format(opt_dynatrace_collection_interval))
+        helper.log_info('dynatrace_collection_interval_minutes: {}'.format(opt_dynatrace_collection_interval_minutes))
+        helper.log_info('dynatrace_metric_selectors: {}'.format(dynatrace_metric_selectors))
+
 
 
         COUNT = 'COUNT'
@@ -214,7 +221,8 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                                                      opt_dynatrace_tenant,
                                                      opt_dynatrace_api_token,
                                                      params=params,
-                                                     verify=opt_ssl_certificate_verification)
+                                                     verify=opt_ssl_certificate_verification,
+                                                     opt_helper=helper)
 
             for timeseries_data in dynatrace_data:
                 serialized = json.dumps(timeseries_data, sort_keys=True)

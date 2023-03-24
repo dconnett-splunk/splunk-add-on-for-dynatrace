@@ -52,4 +52,5 @@ src
 !package/appserver/static/js/build
 *.log
 output/
-package/bin/secrets.env
+package/secrets.env
+package/local/
