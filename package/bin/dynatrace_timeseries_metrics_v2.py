@@ -217,7 +217,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
             }
 
             # Get Dynatrace data using the 'get_dynatrace_data' function from util.py
-            dynatrace_data = util.get_dynatrace_data('metrics',
+            dynatrace_data = util.get_dynatrace_data('metrics_query',
                                                      opt_dynatrace_tenant,
                                                      opt_dynatrace_api_token,
                                                      params=params,
@@ -225,9 +225,13 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                                                      opt_helper=helper)
 
             for timeseries_data in dynatrace_data:
-                serialized = json.dumps(timeseries_data, sort_keys=True)
-                event = helper.new_event(data=serialized, source=None, index=None, sourcetype=None)
-                ew.write_event(event)
+                if timeseries_data['data']:
+                    helper.log_info("Processing Metric: %s" % timeseries_data['metricId'])
+                    series = zip(timeseries_data['data'][0]['timestamps'], timeseries_data['data'][0]['values'])
+                    for datapoint in series:
+                        serialized = json.dumps({'timestamp': datapoint[0], 'value': datapoint[1]}, sort_keys=True)
+                        event = helper.new_event(data=serialized, source=None, index=None, sourcetype=None)
+                        ew.write_event(event)
 
     def get_account_fields(self):
         account_fields= []
