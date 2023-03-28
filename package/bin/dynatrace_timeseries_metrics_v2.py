@@ -224,14 +224,15 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                                                      verify=opt_ssl_certificate_verification,
                                                      opt_helper=helper)
 
-            for timeseries_data in dynatrace_data:
-                if timeseries_data['data']:
-                    helper.log_info("Processing Metric: %s" % timeseries_data['metricId'])
-                    series = zip(timeseries_data['data'][0]['timestamps'], timeseries_data['data'][0]['values'])
-                    for datapoint in series:
-                        serialized = json.dumps({'timestamp': datapoint[0], 'value': datapoint[1]}, sort_keys=True)
-                        event = helper.new_event(data=serialized, source=None, index=None, sourcetype=None)
-                        ew.write_event(event)
+            for page in dynatrace_data:
+                for timeseries_data in page:
+                    if timeseries_data['data']:
+                        helper.log_info("Processing Metric: %s" % timeseries_data['metricId'])
+                        series = zip(timeseries_data['data'][0]['timestamps'], timeseries_data['data'][0]['values'])
+                        for datapoint in series:
+                            serialized = json.dumps({'timestamp': datapoint[0], 'value': datapoint[1]}, sort_keys=True)
+                            event = helper.new_event(data=serialized, source=None, index=None, sourcetype=None)
+                            ew.write_event(event)
 
     def get_account_fields(self):
         account_fields= []
