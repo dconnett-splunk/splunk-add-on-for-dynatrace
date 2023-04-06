@@ -145,7 +145,8 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
                                                  dynatrace_tenant_input,
                                                  opt_dynatrace_api_token,
                                                  time=time_range,
-                                                 verify=opt_ssl_certificate_verification)
+                                                 verify=opt_ssl_certificate_verification,
+                                                 opt_helper=helper)
 
         # Log all previously retrieved arguments
         helper.log_info('dynatrace_tenant: {}'.format(opt_dynatrace_tenant))
@@ -164,11 +165,6 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
                 event = helper.new_event(data=serialized, time=eventLastSeenTime, host=None, index=None, source=None,
                                          sourcetype=None, done=True, unbroken=True)
                 ew.write_event(event)
-
-        # Save the name of the Dynatrace Server that this data came from
-        event = helper.new_event(data='{"dynatrace_server":"' + opt_dynatrace_tenant + '"}', host=None, index=None,
-                                 source=None, sourcetype=None, done=True, unbroken=True)
-        ew.write_event(event)
         pass
         
       

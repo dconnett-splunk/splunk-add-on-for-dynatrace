@@ -230,7 +230,19 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                         helper.log_info("Processing Metric: %s" % timeseries_data['metricId'])
                         series = zip(timeseries_data['data'][0]['timestamps'], timeseries_data['data'][0]['values'])
                         for datapoint in series:
-                            serialized = json.dumps({'timestamp': datapoint[0], 'value': datapoint[1]}, sort_keys=True)
+                            metric_type, metric_name = timeseries_data['metricId'].split(':', 1)
+                            event_data = {
+                                'timestamp': datapoint[0],
+                                'value': datapoint[1],
+                                'metricId': timeseries_data['metricId'],
+                                'metricType': metric_type,
+                                'metricName': metric_name,
+                                'hostId': timeseries_data['data'][0]['dimensions'][0],
+                                'dynatraceTenant': opt_dynatrace_tenant,
+                                'metricSelector': metric_selector,
+                                'unit': timeseries_data['unit']
+                            }
+                            serialized = json.dumps(event_data, sort_keys=True)
                             event = helper.new_event(data=serialized, source=None, index=None, sourcetype=None)
                             ew.write_event(event)
 
