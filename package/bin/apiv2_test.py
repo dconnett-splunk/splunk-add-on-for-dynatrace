@@ -14,6 +14,18 @@ dynatrace_tenant = secrets['dynatrace_tenant']
 dynatrace_api_token = secrets['dynatrace_api_token']
 
 minutes = 1000
+entities = get_dynatrace_data('entities',
+                            dynatrace_tenant,
+                            dynatrace_api_token,
+                            time=get_from_time(minutes),
+                            page_size=100,
+                            verify=False)
+for page in entities:
+    print(page)
+    for event in page:
+        print(event)
+
+
 # Testing new data collection functions
 metrics = get_dynatrace_data('metrics',
                              dynatrace_tenant,

@@ -63,7 +63,8 @@ v2_params = {'metrics':
                   'entitySelector': 'entitySelector',
                   'mzSelector': 'mzSelector',
                   'from': 'from',
-                  'to': 'to'}}
+                  'to': 'to'},
+             'entities': {'entitySelector': 'type("HOST", "APPLICATION", "SERVICE", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE")'}}
 
 
 # Get current working directory
@@ -328,6 +329,7 @@ def get_dynatrace_data(endpoint_name, tenant, api_token, params={}, time=None, p
     params = {
         **params,
         **({'fields': 'unit,aggregationTypes'} if 'metrics' in selector else {}),
+        #**({'entitySelector': v2_params['entities']['entitySelector']} if 'entities' in selector else {}),
         **({'writtenSince': str(time)} if 'metrics' in selector and time else {'from': str(time)} if time else {}),
     }
     if page_size:
@@ -337,6 +339,9 @@ def get_dynatrace_data(endpoint_name, tenant, api_token, params={}, time=None, p
     if opt_helper:
         opt_helper.log_info(f'URL: {url}')
         opt_helper.log_info(f'Params: {params}')
+
+    if endpoint_name == 'entities':
+        return get_dynatrace_entities_data(tenant, api_token, params, time, page_size, verify, opt_helper)
 
     while True:
         try:
@@ -359,6 +364,19 @@ def get_dynatrace_data(endpoint_name, tenant, api_token, params={}, time=None, p
             if opt_helper:
                 opt_helper.log_error(f'Error: {err}')
             break
+
+
+def get_dynatrace_entities_data(tenant, api_token, params, time, page_size, verify, opt_helper):
+    entity_types = ['HOST', 'PROCESS_GROUP_INSTANCE', 'PROCESS_GROUP', 'APPLICATION', 'SERVICE']
+    combined_results = []
+
+    for entity_type in entity_types:
+        params['entitySelector'] = f'type("{entity_type}")'
+        entity_data = get_dynatrace_data('entities', tenant, api_token, params=params, time=time, page_size=page_size,
+                                         verify=verify, opt_helper=opt_helper)
+        combined_results.extend(entity_data)
+
+    return combined_results
 
 
 def get_metric_descriptors(tenant, api_token, verify=True):
