@@ -2,7 +2,7 @@
     "meta": {
         "name": "Splunk_TA_Dynatrace",
         "displayName": "Dynatrace Add-on for Splunk",
-        "version": "2.0",
+        "version": "2.0.0",
         "restRoot": "Splunk_TA_Dynatrace",
         "schemaVersion": "2.0.0"
     },
@@ -458,223 +458,6 @@
                 },
                 {
                     "template": "input_with_helper",
-                    "name": "dynatrace_api_v2",
-                    "title": "Dynatrace API Version 2",
-                    "entity": [
-                        {
-                            "field": "name",
-                            "label": "Name",
-                            "type": "text",
-                            "help": "Enter a unique name for the data input",
-                            "required": true,
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^[a-zA-Z]\\w*$",
-                                    "errorMsg": "Input Name must start with a letter and followed by alphabetic letters, digits or underscores."
-                                },
-                                {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 100,
-                                    "errorMsg": "Length of input name should be between 1 and 100"
-                                }
-                            ]
-                        },
-                        {
-                            "field": "interval",
-                            "label": "Interval",
-                            "type": "text",
-                            "required": true,
-                            "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
-                        },
-                        {
-                            "field": "index",
-                            "label": "Index",
-                            "type": "singleSelect",
-                            "defaultValue": "default",
-                            "options": {
-                                "endpointUrl": "data/indexes",
-                                "createSearchChoice": true,
-                                "denyList": "^_.*$"
-                            },
-                            "required": true,
-                            "validators": [
-                                {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 80,
-                                    "errorMsg": "Length of index name should be between 1 and 80."
-                                }
-                            ]
-                        },
-                        {
-                            "field": "dynatrace_account",
-                            "label": "Dynatrace Account",
-                            "help": "",
-                            "required": true,
-                            "type": "singleSelect",
-                            "options": {
-                                "referenceName": "account"
-                            }
-                        },
-                        {
-                            "field": "dynatrace_collection_interval",
-                            "label": "Dynatrace Collection Interval",
-                            "help": "Relative timeframe passed to Dynatrace API. Timeframe of data to be collected at each polling interval.",
-                            "required": true,
-                            "type": "singleSelect",
-                            "defaultValue": "hour",
-                            "options": {
-                                "disableSearch": true,
-                                "autoCompleteFields": [
-                                    {
-                                        "value": "1",
-                                        "label": "1 Minute"
-                                    },
-                                    {
-                                        "value": "5",
-                                        "label": "5 Minutes"
-                                    },
-                                    {
-                                        "value": "10",
-                                        "label": "10 Minutes"
-                                    },
-                                    {
-                                        "value": "15",
-                                        "label": "15 Minutes"
-                                    },
-                                    {
-                                        "value": "30",
-                                        "label": "30 Minutes"
-                                    },
-                                    {
-                                        "value": "60",
-                                        "label": "1 Hour"
-                                    },
-                                    {
-                                        "value": "120",
-                                        "label": "2 Hours"
-                                    },
-                                    {
-                                        "value": "180",
-                                        "label": "3 Hours"
-                                    },
-                                    {
-                                        "value": "240",
-                                        "label": "4 Hours"
-                                    },
-                                    {
-                                        "value": "300",
-                                        "label": "5 Hours"
-                                    },
-                                    {
-                                        "value": "360",
-                                        "label": "6 Hours"
-                                    },
-                                    {
-                                        "value": "720",
-                                        "label": "12 Hours"
-                                    },
-                                    {
-                                        "value": "1440",
-                                        "label": "1 Day"
-                                    },
-                                    {
-                                        "value": "2880",
-                                        "label": "2 Days"
-                                    },
-                                    {
-                                        "value": "4320",
-                                        "label": "3 Days"
-                                    },
-                                    {
-                                        "value": "5760",
-                                        "label": "4 Days"
-                                    },
-                                    {
-                                        "value": "7200",
-                                        "label": "5 Days"
-                                    },
-                                    {
-                                        "value": "10080",
-                                        "label": "1 Week"
-                                    },
-                                    {
-                                        "value": "20160",
-                                        "label": "2 Weeks"
-                                    },
-                                    {
-                                        "value": "30240",
-                                        "label": "3 Weeks"
-                                    },
-                                    {
-                                        "value": "40320",
-                                        "label": "4 Weeks"
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "field": "dynatrace_apiv2_endpoint",
-                            "label": "Dynatrace API Endpoint",
-                            "help": "Dynatrace API endpoint to be used for data collection.",
-                            "required": true,
-                            "type": "singleSelect",
-                            "defaultValue": "metrics",
-                            "options": {
-                                "disableSearch": true,
-                                "autoCompleteFields": [
-                                    {
-                                        "value": "metrics",
-                                        "label": "Metrics"
-                                    },
-                                    {
-                                        "value": "entities",
-                                        "label": "Entities"
-                                    },
-                                    {
-                                        "value": "events",
-                                        "label": "Events"
-                                    },
-                                    {
-                                        "value": "problems",
-                                        "label": "Problems"
-                                    },
-                                    {
-                                        "value": "synthetic_locations",
-                                        "label": "Synthetic Locations"
-                                    },
-                                    {
-                                        "value": "synthetic_tests",
-                                        "label": "Synthetic Tests"
-                                    },
-                                    {
-                                        "value": "synthetic_tests_results",
-                                        "label": "Synthetic Tests Results"
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "field": "ssl_certificate_verification",
-                            "label": "SSL Certificate Verification",
-                            "help": "",
-                            "required": false,
-                            "type": "checkbox",
-                            "defaultValue": true
-                        }
-                    ]
-                },
-                {
-                    "template": "input_with_helper",
                     "name": "dynatrace_problem",
                     "title": "Dynatrace Problem",
                     "entity": [
@@ -1057,6 +840,211 @@
                                     {
                                         "value": "2hours",
                                         "label": "2 Hours"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "field": "ssl_certificate_verification",
+                            "label": "SSL Certificate Verification",
+                            "help": "",
+                            "required": false,
+                            "type": "checkbox",
+                            "defaultValue": true
+                        }
+                    ]
+                },
+                {
+                    "template": "input_with_helper",
+                    "name": "dynatrace_api_v2",
+                    "title": "Dynatrace API Version 2",
+                    "entity": [
+                        {
+                            "field": "name",
+                            "label": "Name",
+                            "type": "text",
+                            "help": "Enter a unique name for the data input",
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "pattern": "^[a-zA-Z]\\w*$",
+                                    "errorMsg": "Input Name must start with a letter and followed by alphabetic letters, digits or underscores."
+                                },
+                                {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 100,
+                                    "errorMsg": "Length of input name should be between 1 and 100"
+                                }
+                            ]
+                        },
+                        {
+                            "field": "interval",
+                            "label": "Interval",
+                            "type": "text",
+                            "required": true,
+                            "help": "Time interval of input in seconds.",
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
+                                    "errorMsg": "Interval must be an integer."
+                                }
+                            ]
+                        },
+                        {
+                            "field": "index",
+                            "label": "Index",
+                            "type": "singleSelect",
+                            "defaultValue": "default",
+                            "options": {
+                                "endpointUrl": "data/indexes",
+                                "createSearchChoice": true,
+                                "denyList": "^_.*$"
+                            },
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80,
+                                    "errorMsg": "Length of index name should be between 1 and 80."
+                                }
+                            ]
+                        },
+                        {
+                            "field": "dynatrace_account",
+                            "label": "Dynatrace Account",
+                            "help": "",
+                            "required": true,
+                            "type": "singleSelect",
+                            "options": {
+                                "referenceName": "account"
+                            }
+                        },
+                        {
+                            "field": "dynatrace_collection_interval",
+                            "label": "Dynatrace Collection Interval",
+                            "help": "Relative timeframe passed to Dynatrace API. Timeframe of data to be collected at each polling interval.",
+                            "required": true,
+                            "type": "singleSelect",
+                            "defaultValue": "hour",
+                            "options": {
+                                "disableSearch": true,
+                                "autoCompleteFields": [
+                                    {
+                                        "value": "1",
+                                        "label": "1 Minute"
+                                    },
+                                    {
+                                        "value": "5",
+                                        "label": "5 Minutes"
+                                    },
+                                    {
+                                        "value": "10",
+                                        "label": "10 Minutes"
+                                    },
+                                    {
+                                        "value": "15",
+                                        "label": "15 Minutes"
+                                    },
+                                    {
+                                        "value": "30",
+                                        "label": "30 Minutes"
+                                    },
+                                    {
+                                        "value": "60",
+                                        "label": "1 Hour"
+                                    },
+                                    {
+                                        "value": "120",
+                                        "label": "2 Hours"
+                                    },
+                                    {
+                                        "value": "180",
+                                        "label": "3 Hours"
+                                    },
+                                    {
+                                        "value": "240",
+                                        "label": "4 Hours"
+                                    },
+                                    {
+                                        "value": "300",
+                                        "label": "5 Hours"
+                                    },
+                                    {
+                                        "value": "360",
+                                        "label": "6 Hours"
+                                    },
+                                    {
+                                        "value": "720",
+                                        "label": "12 Hours"
+                                    },
+                                    {
+                                        "value": "1440",
+                                        "label": "1 Day"
+                                    },
+                                    {
+                                        "value": "2880",
+                                        "label": "2 Days"
+                                    },
+                                    {
+                                        "value": "4320",
+                                        "label": "3 Days"
+                                    },
+                                    {
+                                        "value": "5760",
+                                        "label": "4 Days"
+                                    },
+                                    {
+                                        "value": "7200",
+                                        "label": "5 Days"
+                                    },
+                                    {
+                                        "value": "10080",
+                                        "label": "1 Week"
+                                    },
+                                    {
+                                        "value": "20160",
+                                        "label": "2 Weeks"
+                                    },
+                                    {
+                                        "value": "30240",
+                                        "label": "3 Weeks"
+                                    },
+                                    {
+                                        "value": "40320",
+                                        "label": "4 Weeks"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "field": "dynatrace_apiv2_endpoint",
+                            "label": "Dynatrace API Endpoint",
+                            "help": "Dynatrace API endpoint to be used for data collection.",
+                            "required": true,
+                            "type": "singleSelect",
+                            "defaultValue": "metrics",
+                            "options": {
+                                "disableSearch": true,
+                                "autoCompleteFields": [
+                                    {
+                                        "value": "entities",
+                                        "label": "Entities"
+                                    },
+                                    {
+                                        "value": "events",
+                                        "label": "Events"
+                                    },
+                                    {
+                                        "value": "problems",
+                                        "label": "Problems"
+                                    },
+                                    {
+                                        "value": "synthetic_locations",
+                                        "label": "Synthetic Locations"
                                     }
                                 ]
                             }

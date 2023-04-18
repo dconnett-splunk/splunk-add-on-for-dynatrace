@@ -14,63 +14,63 @@ dynatrace_tenant = secrets['dynatrace_tenant']
 dynatrace_api_token = secrets['dynatrace_api_token']
 
 minutes = 1000
-entities = get_dynatrace_data('entities',
-                            dynatrace_tenant,
-                            dynatrace_api_token,
-                            time=get_from_time(minutes),
-                            page_size=100,
-                            verify=False)
-for page in entities:
-    print(page)
-    for event in page:
-        print(event)
+time_range = get_from_time(minutes)
+entity_types = ['HOST', 'PROCESS_GROUP_INSTANCE', 'PROCESS_GROUP', 'APPLICATION', 'SERVICE']
+requests_info = prepare_dynatrace_request('entities',
+                                          dynatrace_tenant,
+                                          dynatrace_api_token,
+                                          time=time_range,
+                                          page_size=100,
+                                          entity_types=entity_types)
+# Fetch the data using the prepared request information
+entities = get_dynatrace_data(requests_info, verify=False)
+
+# Print the fetched data
+for entity in entities:
+    print(entity)
 
 
 # Testing new data collection functions
-metrics = get_dynatrace_data('metrics',
+metrics_request_info = prepare_dynatrace_request('metrics',
                              dynatrace_tenant,
                              dynatrace_api_token,
                              time=get_from_time(minutes),
-                             page_size=100,
-                             verify=False)
+                             page_size=100)
 
 stored_metrics = []
-for page in metrics:
-    for metric in page:
-        print(metric)
-        stored_metrics.append(metric)
+metrics = get_dynatrace_data(metrics_request_info, verify=False)
+for metric in metrics:
+    print(metric)
+    stored_metrics.append(metric)
 
-problems = get_dynatrace_data('problems',
+problems_requests_info = prepare_dynatrace_request('problems',
                               dynatrace_tenant,
                               dynatrace_api_token,
-                              time=get_from_time(10000),
-                              verify=False)
+                              time=get_from_time(10000))
 
-for page in problems:
-    for problem in page:
-        print(problem)
+problems = get_dynatrace_data(problems_requests_info, verify=False)
 
-events = get_dynatrace_data('events',
+for problem in problems:
+    print(problem)
+
+events_requests_info = prepare_dynatrace_request('events',
                             dynatrace_tenant,
                             dynatrace_api_token,
                             time=get_from_time(minutes),
-                            page_size=100,
-                            verify=False)
-for page in events:
-    print(page)
-    for event in page:
-        print(event)
+                            page_size=100)
+events = get_dynatrace_data(events_requests_info, verify=False)
+for event in events:
+    print(event)
 
-synthetic_locations = get_dynatrace_data('synthetic_locations',
+synthetic_locations = prepare_dynatrace_request('synthetic_locations',
                                          dynatrace_tenant,
                                          dynatrace_api_token,
                                          time=get_from_time(minutes),
-                                         page_size=100,
-                                         verify=False)
-for page in synthetic_locations:
-    print(page)
-    for location in page:
-        print(location)
+                                         page_size=100)
+
+locations = get_dynatrace_data(synthetic_locations, verify=False)
+for location in locations:
+    print(location)
 
 # Print variables for testing
 print('dynatrace_tenant: ' + dynatrace_tenant)
@@ -90,32 +90,44 @@ parameters = {
 end_time = datetime.datetime.now().isoformat() + 'Z'
 start_time = (datetime.datetime.now() - datetime.timedelta(hours=1)).isoformat() + 'Z'
 
-metrics = get_dynatrace_data('metrics', dynatrace_tenant, dynatrace_api_token, time=get_from_time(1000), page_size=100,
-                             verify=False)
+
+metrics_request_info = prepare_dynatrace_request('metrics',
+                                                 dynatrace_tenant,
+                                                 dynatrace_api_token,
+                                                 time=get_from_time(minutes),
+                                                 page_size=100)
+
+metrics = get_dynatrace_data(metrics_request_info, verify=False)
 metric_ids = []
-for page in metrics:
-    for metric in page:
-        print(metric['metricId'])
-        metric_ids.append(metric['metricId'])
+for metric in metrics:
+    print(metric['metricId'])
+    metric_ids.append(metric['metricId'])
 
 metrics_params = {
-    'metricSelector': 'builtin:host.cpu.usage',
     'startTimestamp': start_time,
     'endTimestamp': end_time
 }
 
 for metric_id in metric_ids:
     metrics_params['metricSelector'] = metric_id
-    metrics = get_dynatrace_data('metrics_query', dynatrace_tenant, dynatrace_api_token, time=get_from_time(1000),
-                                 verify=False, params=metrics_params)
-    for page in metrics:
-        for metric in page:
-            # Zip timestamps and data
-            if metric['data']:
-                print(metric['metricId'])
-                series = zip(metric['data'][0]['timestamps'], metric['data'][0]['values'])
-                for datapoint in series:
-                    print(datapoint)
+    metrics_request_info = prepare_dynatrace_request('metrics_query',
+                                                      dynatrace_tenant,
+                                                      dynatrace_api_token,
+                                                      params=metrics_params)
+
+    print("Metrics request info: " + str(metrics_request_info))
+
+    metrics = get_dynatrace_data(metrics_request_info, verify=False)
+    for metric in metrics:
+        # Zip timestamps and data
+        if metric['data']:
+            print(metric['data'][0]['dimensions'])
+
+            # if there is more than one metric, print the whole metric
+            if len(metric['data'][0]['values']) > 1:
+                print(metric)
+            series = zip(metric['data'][0]['timestamps'], metric['data'][0]['values'])
+
 
 # print('Timeseries test')
 # timeseries = get_dynatrace_data('metrics_query', dynatrace_tenant, dynatrace_api_token, time=get_from_time(1000),

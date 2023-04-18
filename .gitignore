@@ -54,3 +54,9 @@ src
 output/
 package/secrets.env
 package/local/
+local/indexes.conf
+local/inputs.conf
+local/passwords.conf
+local/splunk_ta_dynatrace_account.conf
+secrets.env
+Splunk_TA_Dynatrace-2.0.0.tar.gz
