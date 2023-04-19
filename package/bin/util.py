@@ -9,6 +9,8 @@ import traceback
 import logging
 import logging.handlers
 import urllib3
+from typing import Union
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -22,7 +24,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         get_dynatrace_entity_end"""
 
 __author__ = "David Connett"
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 __maintainer__ = "David Connett"
 __email__ = "dconnett@splunk.com"
 __status__ = "Development"
@@ -45,7 +47,7 @@ v2_endpoints = {'metrics': '/api/v2/metrics',
                 'problems': '/api/v2/problems',
                 'events': '/api/v2/events',
                 'synthetic_locations': '/api/v2/synthetic/locations',
-                'synthetic_tests': '/api/v2/synthetic/tests',
+                'synthetic_tests': '/api/v2/synthetic/executions',
                 'synthetic_tests_results': '/api/v2/synthetic/tests/results'}
 
 v2_params = {'metrics':
@@ -61,7 +63,8 @@ v2_params = {'metrics':
                   'entitySelector': 'entitySelector',
                   'mzSelector': 'mzSelector',
                   'from': 'from',
-                  'to': 'to'}}
+                  'to': 'to'},
+             'entities': {'entitySelector': 'type("HOST", "APPLICATION", "SERVICE", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE")'}}
 
 
 # Get current working directory
@@ -140,6 +143,7 @@ def parse_secrets_env():
 
     # Construct a path relative to the script directory
     secrets_file = os.path.join(package_dir, 'secrets.env')
+    print("Secrets file:", secrets_file)
     if os.path.exists(secrets_file):
         with open(secrets_file) as f:
             for line in f:
@@ -195,7 +199,7 @@ def default_time():
     return last_hour
 
 
-def get_from_time(minutes=60):
+def get_from_time(minutes: int = 60) -> int:
     """Calculate unix stamp n minutes ago. Return unix epoch time in milliseconds with no decimals"""
     from_time = (datetime.datetime.now() - datetime.timedelta(minutes=minutes)).timestamp()
 
@@ -206,7 +210,7 @@ def get_from_time(minutes=60):
     return from_time
 
 
-def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_size=100, verify=True):
+def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_size=100, verify=True, opt_helper=None):
     """Get Dynatrace data from the API v2. 
 
     Args:
@@ -255,9 +259,17 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
     # Set the URL
     url = tenant + endpoint
     # Get the problems
+
+    # Log all the things
+    if opt_helper:
+        opt_helper.log_debug(f'URL: {url}')
+        opt_helper.log_debug(f'Headers: {headers}')
+        opt_helper.log_debug(f'Params: {params}')
     try:
         response = requests.get(url, headers=headers, params=parameters, verify=verify)
         # If request doesn't have a 400 or greater error
+        if opt_helper:
+            opt_helper.log_debug(f'Response: {response}')
         if response.status_code < 400:
             parsed_response = response.json()
 
@@ -265,6 +277,8 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
             yield parsed_response[selector]
     except requests.exceptions.HTTPError as err:
         print(err)
+        if opt_helper:
+            opt_helper.log_error(f'Error: {err}')
 
         # Keep paging through the results if they exist
     while 'nextPageKey' in parsed_response and parsed_response.get('nextPageKey') is not None:
@@ -279,6 +293,8 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
 
         except requests.exceptions.HTTPError as err:
             print(err)
+            if opt_helper:
+                opt_helper.log_error(f'Error: {err}')
             break
 
         # Check if nextPageKey is in the response or is null
@@ -287,22 +303,8 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
             break
 
 
-def get_dynatrace_data(endpoint_name, tenant, api_token, params={}, time=None, page_size=None, verify=True):
-    """Get Dynatrace data from the API v2.
-
-    Args:
-        endpoint_name (str): Dynatrace API endpoint name. E.g. 'problems'.
-        tenant (str): Dynatrace tenant URL.
-        api_token (str): Dynatrace API token
-        params (dict): Parameters for the API call. Defaults to {}.
-        time (str): Time range for the problems. Defaults to None.
-        page_size (int): Number of problems to return. Defaults to 100.
-        verify (bool): Verify SSL certificate. Defaults to True.
-
-    Yields:
-        json: JSON response from the API.
-    """
-
+def prepare_dynatrace_request(endpoint_name, tenant, api_token, params={}, time=None, page_size=None,
+                              entity_types=None):
     endpoint_uri = v2_endpoints[endpoint_name]
     selector = v2_selectors[endpoint_name]
     url = tenant + endpoint_uri
@@ -310,28 +312,59 @@ def get_dynatrace_data(endpoint_name, tenant, api_token, params={}, time=None, p
         'Authorization': 'Api-Token {}'.format(api_token),
         'version': 'Splunk_TA_Dynatrace'
     }
-    params = {
+    prepared_params = {
         **params,
         **({'fields': 'unit,aggregationTypes'} if 'metrics' in selector else {}),
         **({'writtenSince': str(time)} if 'metrics' in selector and time else {'from': str(time)} if time else {}),
     }
     if page_size:
-        params['pageSize'] = page_size
+        prepared_params['pageSize'] = page_size
 
+    if endpoint_name == 'entities' and entity_types:
+        return [(url, headers, {**prepared_params, 'entitySelector': f'type("{entity_type}")'}, selector) for entity_type in
+                entity_types]
+
+    return [(url, headers, prepared_params, selector)]
+
+
+
+def get_dynatrace_data(requests_info, verify=True, opt_helper=None):
+    combined_results = []
+
+    for url, headers, params, selector in requests_info:
+        for response in _get_dynatrace_data(url, headers, params, verify, opt_helper):
+            parsed_response = response[selector]
+            for item in parsed_response:
+                combined_results.append(item)
+
+    return combined_results
+
+
+
+def _get_dynatrace_data(url, headers, params, verify, opt_helper):
     while True:
         try:
             response = requests.get(url, headers=headers, params=params, verify=verify)
+            if opt_helper:
+                opt_helper.log_debug(f'Response: {response.text}')
             response.raise_for_status()
             parsed_response = response.json()
-            yield parsed_response[selector]
+            if opt_helper:
+                opt_helper.log_debug(f'Parsed response: {parsed_response}')
+            yield parsed_response
 
             if 'nextPageKey' not in parsed_response or parsed_response['nextPageKey'] is None:
                 break
+            params = {}
             params['nextPageKey'] = parsed_response['nextPageKey']
 
         except requests.exceptions.HTTPError as err:
             print(err)
+            if opt_helper:
+                opt_helper.log_error(f'Error: {err}')
             break
+
+
 
 
 def get_metric_descriptors(tenant, api_token, verify=True):
@@ -408,6 +441,8 @@ v2_selectors = {'metrics': 'metrics',
                 'problems': 'problems',
                 'events': 'events',
                 'synthetic_locations': 'locations',
+                'synthetic_tests': 'synthetic/executions',
+                'synthetic_nodes': 'synthetic/monitors',
                 'metrics_query': 'result'}
 
 # secrets = parse_secrets_env()

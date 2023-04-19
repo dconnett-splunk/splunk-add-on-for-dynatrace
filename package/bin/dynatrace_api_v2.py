@@ -91,26 +91,10 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
     def validate_input(helper, definition):
         pass
 
-
     def collect_events(helper, ew):
-    
-        '''
-        Verify SSL Certificate
-        '''
-        
-        # ssl_certificate = helper.get_arg('ssl_certificate_verification')
-        
-        # if ssl_certificate == True:
-        #     verify_ssl = True
-        # else:
-        #     verify_ssl = False
-    
-        '''
-        Force HTTPS
-        '''
-        
         dynatrace_account_input = helper.get_arg("dynatrace_account")
         dynatrace_tenant_input = dynatrace_account_input["username"]
+
 
         if dynatrace_tenant_input.find('https://') == 0:
             opt_dynatrace_tenant = dynatrace_tenant_input
@@ -119,76 +103,55 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         else:
             opt_dynatrace_tenant = 'https://' + dynatrace_tenant_input
 
-
         opt_dynatrace_api_token = dynatrace_account_input["password"]
-
         endpoint = helper.get_arg("dynatrace_apiv2_endpoint")
-
-
-        # get Dynatrace interval in minutes
-        opt_dynatrace_collection_interval_minutes = helper.get_arg("dynatrace_collection_interval")
-        opt_dynatrace_collection_interval = helper.get_arg('dynatrace_collection_interval')
-        opt_dynatrace_entity_endpoints = helper.get_arg('entity_endpoints')
+        opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
         opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
+        index = helper.get_arg("index")
 
-        # Calculate time range given the collection interval using util.py
-        time_range = util.get_time_range(opt_dynatrace_collection_interval_minutes)
+        time_range = util.get_from_time(int(opt_dynatrace_collection_interval_minutes))
 
-        # get Dynatrace data given from util.py
-        # dynatrace_data = util.get_dynatrace_data(endpoint,
-        #                                          dynatrace_tenant_input,
-        #                                          opt_dynatrace_api_token,
-        #                                          time=time_range,
-        #                                          ssl_certificate_verification=opt_ssl_certificate_verification)
-        # Get Dynatrace data from util.py
-        dynatrace_data = util.get_dynatrace_data(endpoint,
-                                                 dynatrace_tenant_input,
-                                                 opt_dynatrace_api_token,
-                                                 time=time_range,
-                                                 ssl_certificate_verification=opt_ssl_certificate_verification)
+        # Set a default list of entity types for the 'entities' endpoint
+        default_entity_types = ['HOST', 'PROCESS_GROUP_INSTANCE', 'PROCESS_GROUP', 'APPLICATION', 'SERVICE']
 
-        for entity in dynatrace_data:
-            eventLastSeenTime = entity["lastSeenTimestamp"] / 1000
-            entity.update({"timestamp": eventLastSeenTime})
-            entity['endpoint'] = endpoint
-            serialized = json.dumps(entity, sort_keys=True)
-            event = helper.new_event(data=serialized, time=eventLastSeenTime, host=None, index=None, source=None,
-                                     sourcetype=None, done=True, unbroken=True)
+        sourcetype_mapping = {
+            "problems": "dynatrace:problems",
+            "events": "dynatrace:events",
+            "entities": "dynatrace:entities",
+            "synthetic_locations": "dynatrace:synthetic_locations",
+            # Add more mappings as needed
+        }
+        sourcetype = sourcetype_mapping.get(endpoint, None)
+
+        if endpoint == 'entities':
+            entity_types = default_entity_types
+        else:
+            entity_types = None
+
+        requests_info = util.prepare_dynatrace_request(
+            endpoint,
+            opt_dynatrace_tenant,
+            opt_dynatrace_api_token,
+            time=time_range,
+            entity_types=entity_types
+        )
+
+        dynatrace_data = util.get_dynatrace_data(requests_info, verify=opt_ssl_certificate_verification,
+                                                 opt_helper=helper)
+
+        helper.log_debug('dynatrace_tenant: {}'.format(opt_dynatrace_tenant))
+        helper.log_debug('dynatrace_collection_interval: {}'.format(opt_dynatrace_collection_interval_minutes))
+
+        for record in dynatrace_data:
+            eventLastSeenTime = None
+            if "lastSeenTimestamp" in record:
+                eventLastSeenTime = record["lastSeenTimestamp"] / 1000
+                record.update({"timestamp": eventLastSeenTime})
+            record['endpoint'] = endpoint
+            serialized = json.dumps(record, sort_keys=True)
+            event = helper.new_event(data=serialized, time=eventLastSeenTime, host=None, index=index, source=None,
+                                     sourcetype=sourcetype, done=True, unbroken=True)
             ew.write_event(event)
-
-        # Save the name of the Dynatrace Server that this data came from
-        event = helper.new_event(data='{"dynatrace_server":"' + opt_dynatrace_tenant + '"}', host=None, index=None,
-                                 source=None, sourcetype=None, done=True, unbroken=True)
-        ew.write_event(event)
-
-
-
-        # for endpoint in opt_dynatrace_entity_endpoints:
-        #     response = helper.send_http_request(api_url + endpoint , "GET", headers=headers,  parameters=parameters, payload=None, cookies=None, verify=verify_ssl, cert=None, timeout=None, use_proxy=True)
-        #     try:
-        #         response.raise_for_status()
-        #     except:
-        #         helper.log_error (response.text)
-        #         return
-        
-        #     data = response.json()
-        #     z = json.dumps(data)
-        #     x = json.loads(z)
-    
-        #     for entity in x:
-        #         eventLastSeenTime = entity["lastSeenTimestamp"]/1000
-        #         entity.update({"timestamp":eventLastSeenTime})
-        #         entity['endpoint'] = endpoint
-        #         serialized = json.dumps(entity, sort_keys=True)
-        #         event = helper.new_event(data=serialized, time=eventLastSeenTime, host=None, index=None, source=None, sourcetype=None, done=True, unbroken=True)
-        #         ew.write_event(event)
-    
-        # #   Save the name of the Dynatrace Server that this data came from
-        # event = helper.new_event(data='{"dynatrace_server":"' + opt_dynatrace_tenant + '"}', host=None, index=None, source=None, sourcetype=None, done=True, unbroken=True)
-        # ew.write_event(event)
-        pass
-        
-      
 
     def get_account_fields(self):
         account_fields = []
