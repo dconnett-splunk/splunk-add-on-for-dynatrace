@@ -1,7 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- SPDX-FileCopyrightText: 2023 David Connett -->
-<!-- SPDX-License-Identifier: Apache-2.0 -->
-
+<?xml version="1.0"?>
 <view template="Splunk_TA_Dynatrace:templates/base.html" type="html" isDashboard="False">
     <label>Configuration</label>
 </view>

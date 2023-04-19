@@ -1,7 +1,3 @@
-#!/bin/bash
-# SPDX-FileCopyrightText: 2023 David Connett
-# SPDX-License-Identifier: Apache-2.0
-
 for OUTPUT in $(ls input_module_*.py | xargs -L1 | awk -F"input_module_" '{print $2}')
 do
     echo $OUTPUT
