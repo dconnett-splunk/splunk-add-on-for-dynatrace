@@ -30,23 +30,24 @@ from solnlib import log
 from solnlib.modular_input import checkpointer
 from splunktaucclib.modinput_wrapper import base_modinput  as base_mi 
 import requests
+import util
 
 # encoding = utf-8
 
 
 
 
-class ModInputdynatrace_entity(base_mi.BaseModInput):
+class ModInputdynatrace_api_v2(base_mi.BaseModInput):
 
     def __init__(self):
         use_single_instance = False
-        super(ModInputdynatrace_entity, self).__init__("splunk_ta_dynatrace", "dynatrace_entity", use_single_instance)
+        super(ModInputdynatrace_api_v2, self).__init__("splunk_ta_dynatrace", "dynatrace_api_v2", use_single_instance)
         self.global_checkbox_fields = None
 
     def get_scheme(self):
         """overloaded splunklib modularinput method"""
-        scheme = super(ModInputdynatrace_entity, self).get_scheme()
-        scheme.title = ("Dynatrace Entity")
+        scheme = super(ModInputdynatrace_api_v2, self).get_scheme()
+        scheme.title = ("Dynatrace API v2")
         scheme.description = ("Go to the add-on\'s configuration UI and configure modular inputs under the Inputs menu.")
         scheme.use_external_validation = True
         scheme.streaming_mode_xml = True
@@ -63,14 +64,21 @@ class ModInputdynatrace_entity(base_mi.BaseModInput):
                                          description="",
                                          required_on_create=True,
                                          required_on_edit=False))
+
         scheme.add_argument(smi.Argument("dynatrace_collection_interval", title="Dynatrace Collection Interval",
                                          description="Relative timeframe passed to Dynatrace API. Timeframe of data to be collected at each polling interval.",
                                          required_on_create=True,
                                          required_on_edit=False))
-        scheme.add_argument(smi.Argument("entity_endpoints", title="Entity Endpoints",
-                                         description="",
+
+        scheme.add_argument(smi.Argument("dynatrace_apiv2_endpoint", title="Dynatrace API Endpoint",
+                                         description="Dynatrace API endpoint to be used for data collection.",
                                          required_on_create=True,
                                          required_on_edit=False))
+
+        # scheme.add_argument(smi.Argument("entity_endpoints", title="Entity Endpoints",
+        #                                  description="",
+        #                                  required_on_create=True,
+        #                                  required_on_edit=False))
         scheme.add_argument(smi.Argument("ssl_certificate_verification", title="SSL Certificate Verification",
                                          description="",
                                          required_on_create=False,
@@ -82,80 +90,68 @@ class ModInputdynatrace_entity(base_mi.BaseModInput):
 
     def validate_input(helper, definition):
         pass
-    
 
     def collect_events(helper, ew):
-    
-        '''
-        Verify SSL Certificate
-        '''
-        
-        ssl_certificate = helper.get_arg('ssl_certificate_verification')
-        
-        if ssl_certificate == True:
-            verify_ssl = True
-        else:
-            verify_ssl = False
-    
-        '''
-        Force HTTPS
-        '''
-        
         dynatrace_account_input = helper.get_arg("dynatrace_account")
         dynatrace_tenant_input = dynatrace_account_input["username"]
-        
+
+
         if dynatrace_tenant_input.find('https://') == 0:
             opt_dynatrace_tenant = dynatrace_tenant_input
         elif dynatrace_tenant_input.find('http://') == 0:
             opt_dynatrace_tenant = dynatrace_tenant_input.replace('http://', 'https://')
-        else: 
+        else:
             opt_dynatrace_tenant = 'https://' + dynatrace_tenant_input
-        
-        '''
-        '''
-        
+
         opt_dynatrace_api_token = dynatrace_account_input["password"]
-        opt_dynatrace_collection_interval = helper.get_arg('dynatrace_collection_interval')
-        opt_dynatrace_entity_endpoints = helper.get_arg('entity_endpoints')
-        
-        time_offset  = int(opt_dynatrace_collection_interval) * 1000
-        current_time = int(round(time.time() * 1000))
-        offset_time  = current_time - time_offset
-    
-    
-        headers     = {'Authorization': 'Api-Token {}'.format(opt_dynatrace_api_token),
-                        'version':'Splunk TA 1.0.3'}
-        api_url     = opt_dynatrace_tenant + '/api/v1/entity/'
-        parameters  = { 'startTimestamp':str(offset_time), 
-                         'endTimestamp': str(current_time)
-                       }
-    
-        for endpoint in opt_dynatrace_entity_endpoints:
-            response = helper.send_http_request(api_url + endpoint , "GET", headers=headers,  parameters=parameters, payload=None, cookies=None, verify=verify_ssl, cert=None, timeout=None, use_proxy=True)
-            try:
-                response.raise_for_status()
-            except:
-                helper.log_error (response.text)
-                return
-        
-            data = response.json()
-            z = json.dumps(data)
-            x = json.loads(z)
-    
-            for entity in x:
-                eventLastSeenTime = entity["lastSeenTimestamp"]/1000
-                entity.update({"timestamp":eventLastSeenTime})
-                entity['endpoint'] = endpoint
-                serialized = json.dumps(entity, sort_keys=True)
-                event = helper.new_event(data=serialized, time=eventLastSeenTime, host=None, index=None, source=None, sourcetype=None, done=True, unbroken=True)
-                ew.write_event(event)
-    
-        #   Save the name of the Dynatrace Server that this data came from
-        event = helper.new_event(data='{"dynatrace_server":"' + opt_dynatrace_tenant + '"}', host=None, index=None, source=None, sourcetype=None, done=True, unbroken=True)
-        ew.write_event(event)
-        
-        
-      
+        endpoint = helper.get_arg("dynatrace_apiv2_endpoint")
+        opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
+        opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
+        index = helper.get_arg("index")
+
+        time_range = util.get_from_time(int(opt_dynatrace_collection_interval_minutes))
+
+        # Set a default list of entity types for the 'entities' endpoint
+        default_entity_types = ['HOST', 'PROCESS_GROUP_INSTANCE', 'PROCESS_GROUP', 'APPLICATION', 'SERVICE']
+
+        sourcetype_mapping = {
+            "problems": "dynatrace:problems",
+            "events": "dynatrace:events",
+            "entities": "dynatrace:entities",
+            "synthetic_locations": "dynatrace:synthetic_locations",
+            # Add more mappings as needed
+        }
+        sourcetype = sourcetype_mapping.get(endpoint, None)
+
+        if endpoint == 'entities':
+            entity_types = default_entity_types
+        else:
+            entity_types = None
+
+        requests_info = util.prepare_dynatrace_request(
+            endpoint,
+            opt_dynatrace_tenant,
+            opt_dynatrace_api_token,
+            time=time_range,
+            entity_types=entity_types
+        )
+
+        dynatrace_data = util.get_dynatrace_data(requests_info, verify=opt_ssl_certificate_verification,
+                                                 opt_helper=helper)
+
+        helper.log_debug('dynatrace_tenant: {}'.format(opt_dynatrace_tenant))
+        helper.log_debug('dynatrace_collection_interval: {}'.format(opt_dynatrace_collection_interval_minutes))
+
+        for record in dynatrace_data:
+            eventLastSeenTime = None
+            if "lastSeenTimestamp" in record:
+                eventLastSeenTime = record["lastSeenTimestamp"] / 1000
+                record.update({"timestamp": eventLastSeenTime})
+            record['endpoint'] = endpoint
+            serialized = json.dumps(record, sort_keys=True)
+            event = helper.new_event(data=serialized, time=eventLastSeenTime, host=None, index=index, source=None,
+                                     sourcetype=sourcetype, done=True, unbroken=True)
+            ew.write_event(event)
 
     def get_account_fields(self):
         account_fields = []
@@ -182,5 +178,5 @@ class ModInputdynatrace_entity(base_mi.BaseModInput):
         return self.global_checkbox_fields
 
 if __name__ == "__main__":
-    exitcode = ModInputdynatrace_entity().run(sys.argv)
+    exitcode = ModInputdynatrace_api_v2().run(sys.argv)
     sys.exit(exitcode)
