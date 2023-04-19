@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2023 David Connett
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import sys
