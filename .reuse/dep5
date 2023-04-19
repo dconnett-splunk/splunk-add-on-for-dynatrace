@@ -53,14 +53,14 @@ Files: README*
 Copyright: $YEAR $NAME <$CONTACT>
 License: Apache-2.0
 
-Files: /github/workspace/globalConfig.json
+Files: /globalConfig.json
 Copyright: 2023 David Connett
 License: Apache-2.0
 
-Files: /github/workspace/package/lib/requirements.txt
+Files: /package/lib/requirements.txt
 Copyright: 2023 David Connett
 License: Apache-2.0
 
-Files: /github/workspace/package/appserver/templates/base.html
+Files: /package/appserver/templates/base.html
 Copyright: 2023 David Connett
 License: Apache-2.0
