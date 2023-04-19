@@ -3,7 +3,6 @@ Upstream-Name: Splunk Add On For Dynatrace
 Upstream-Contact: Splunk Inc. <support@splunk.com>
 Source: https://github.com/splunk/splunk-add-on-for-dynatrace
 
-
 Files: deps/*
 Copyright: $YEAR $NAME <$CONTACT>
 License: LicenseRef-Splunk-1-2020
