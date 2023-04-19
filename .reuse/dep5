@@ -1,54 +1,66 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: Splunk Add On For Juniper
+Upstream-Name: Splunk Add On For Dynatrace
 Upstream-Contact: Splunk Inc. <support@splunk.com>
-Source: https://github.com/splunk/splunk-add-on-for-juniper
+Source: https://github.com/splunk/splunk-add-on-for-dynatrace
 
 
 Files: deps/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
 
 
 Files: package/lookups/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
 
 Files: package/static/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
 
 Files: package/samples/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
 
 Files: package/metadata/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
 
 Files: package/app.manifest
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
 
 Files: package/README.*
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
 
 Files: tests/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
 
 Files: .*
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
 
 Files: Dockerfile*
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
 
 Files: semtag
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
 
 Files: README*
 Copyright: $YEAR $NAME <$CONTACT>
-License: LicenseRef-Splunk-1-2020
+License: Apache-2.0
+
+Files: /github/workspace/globalConfig.json
+Copyright: 2023 David Connett
+License: Apache-2.0
+
+Files: /github/workspace/package/lib/requirements.txt
+Copyright: 2023 David Connett
+License: Apache-2.0
+
+Files: /github/workspace/package/appserver/templates/base.html
+Copyright: 2023 David Connett
+License: Apache-2.0
