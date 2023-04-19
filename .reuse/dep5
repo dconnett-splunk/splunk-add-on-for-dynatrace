@@ -71,3 +71,7 @@ License: LicenseRef-Splunk-1-2020
 Files: package/default/*
 Copyright: 2023 David Connett
 License: LicenseRef-Splunk-1-2020
+
+Files: metric_selectors.txt
+Copyright: 2023 David Connett
+License: LicenseRef-Splunk-1-2020
