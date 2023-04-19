@@ -6,60 +6,68 @@ Source: https://github.com/splunk/splunk-add-on-for-dynatrace
 
 Files: deps/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: package/lookups/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: package/static/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: package/samples/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: package/metadata/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: package/app.manifest
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: package/README.*
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: tests/*
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: .*
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: Dockerfile*
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: semtag
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: README*
 Copyright: $YEAR $NAME <$CONTACT>
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: globalConfig.json
 Copyright: 2023 David Connett
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: package/lib/requirements.txt
 Copyright: 2023 David Connett
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
 
 Files: package/appserver/templates/base.html
 Copyright: 2023 David Connett
-License: Apache-2.0
+License: LicenseRef-Splunk-1-2020
+
+Files: package/bin/*
+Copyright: 2023 David Connett
+License: LicenseRef-Splunk-1-2020
+
+Files: package/default/*
+Copyright: 2023 David Connett
+License: LicenseRef-Splunk-1-2020
