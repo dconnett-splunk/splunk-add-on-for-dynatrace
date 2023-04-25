@@ -79,10 +79,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         #                                  description="",
         #                                  required_on_create=True,
         #                                  required_on_edit=False))
-        scheme.add_argument(smi.Argument("ssl_certificate_verification", title="SSL Certificate Verification",
-                                         description="",
-                                         required_on_create=False,
-                                         required_on_edit=False))
+
         return scheme
 
     def get_app_name(self):
@@ -106,7 +103,8 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         opt_dynatrace_api_token = dynatrace_account_input["password"]
         endpoint = helper.get_arg("dynatrace_apiv2_endpoint")
         opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
-        opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
+        # opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
+        opt_ssl_certificate_verification = True
         index = helper.get_arg("index")
 
         time_range = util.get_from_time(int(opt_dynatrace_collection_interval_minutes))

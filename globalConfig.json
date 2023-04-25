@@ -276,10 +276,6 @@
                         "label": "Entity Endpoints"
                     },
                     {
-                        "field": "ssl_certificate_verification",
-                        "label": "SSL Certificate Verification"
-                    },
-                    {
                         "field": "dynatrace_metric",
                         "label": "Dynatrace Metric"
                     },
@@ -445,14 +441,6 @@
                                     }
                                 ]
                             }
-                        },
-                        {
-                            "field": "ssl_certificate_verification",
-                            "label": "SSL Certificate Verification",
-                            "help": "",
-                            "required": false,
-                            "type": "checkbox",
-                            "defaultValue": true
                         }
                     ]
                 },
@@ -561,14 +549,6 @@
                                     }
                                 ]
                             }
-                        },
-                        {
-                            "field": "ssl_certificate_verification",
-                            "label": "SSL Certificate Verification",
-                            "help": "",
-                            "required": false,
-                            "type": "checkbox",
-                            "defaultValue": true
                         }
                     ]
                 },
@@ -723,14 +703,6 @@
                                     }
                                 ]
                             }
-                        },
-                        {
-                            "field": "ssl_certificate_verification",
-                            "label": "SSL Certificate Verification",
-                            "help": "",
-                            "required": false,
-                            "type": "checkbox",
-                            "defaultValue": true
                         }
                     ]
                 },
@@ -843,14 +815,6 @@
                                     }
                                 ]
                             }
-                        },
-                        {
-                            "field": "ssl_certificate_verification",
-                            "label": "SSL Certificate Verification",
-                            "help": "",
-                            "required": false,
-                            "type": "checkbox",
-                            "defaultValue": true
                         }
                     ]
                 },
@@ -1048,14 +1012,6 @@
                                     }
                                 ]
                             }
-                        },
-                        {
-                            "field": "ssl_certificate_verification",
-                            "label": "SSL Certificate Verification",
-                            "help": "",
-                            "required": false,
-                            "type": "checkbox",
-                            "defaultValue": true
                         }
                     ]
                 },
@@ -1181,14 +1137,6 @@
                                 "disabledOnEdit": true,
                                 "placeholder": "builtin:host.cpu.user:sort(value(max,descending)):limit(10)"
                             }
-                        },
-                        {
-                            "field": "ssl_certificate_verification",
-                            "label": "SSL Certificate Verification",
-                            "help": "",
-                            "required": false,
-                            "type": "checkbox",
-                            "defaultValue": true
                         }
                     ]
                 }

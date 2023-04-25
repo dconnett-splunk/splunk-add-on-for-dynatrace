@@ -89,10 +89,6 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                                          description="Relative timeframe passed to Dynatrace API. Timeframe of data to be collected at each polling interval.",
                                          required_on_create=True,
                                          required_on_edit=False))
-        scheme.add_argument(smi.Argument("ssl_certificate_verification", title="SSL Certificate Verification",
-                                         description="",
-                                         required_on_create=False,
-                                         required_on_edit=False))
         scheme.add_argument(smi.Argument("dynatrace_metric_selectors_v2_textarea", title="Dynatrace Metric Selectors",
                                          description="",
                                          required_on_create=True,
@@ -118,11 +114,8 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         # Log the start of the collect_events function
         helper.log_debug('Beginning collect_events')
 
-        # Retrieve SSL certificate verification setting
-        ssl_certificate = helper.get_arg('ssl_certificate_verification')
-
-        # Set verify_ssl based on the ssl_certificate value
-        verify_ssl = True if ssl_certificate else False
+        # opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
+        opt_ssl_certificate_verification = True
 
         # Retrieve Dynatrace account information
         dynatrace_account_input = helper.get_arg("dynatrace_account")
@@ -139,7 +132,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
             opt_dynatrace_tenant = 'https://' + dynatrace_tenant_input
 
         # Log the verify_ssl value
-        helper.log_debug('verify_ssl: {}'.format(verify_ssl))
+        helper.log_debug('verify_ssl: {}'.format(opt_ssl_certificate_verification))
 
         # Retrieve Dynatrace collection interval and other arguments
         opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
