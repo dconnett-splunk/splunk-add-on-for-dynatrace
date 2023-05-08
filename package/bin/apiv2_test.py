@@ -2,7 +2,6 @@ from util import *
 import datetime
 from itertools import *
 
-# Get time one hour ago Human-readable format of 2021-01-25T05:57:01.123+01:00
 
 get_current_working_directory()
 # get time from one hour ago in UTC milliseconds
@@ -22,6 +21,7 @@ requests_info = prepare_dynatrace_request('entities',
                                           time=time_range,
                                           page_size=100,
                                           entity_types=entity_types)
+
 # Fetch the data using the prepared request information
 entities = get_dynatrace_data(requests_info, verify=False)
 
@@ -29,13 +29,12 @@ entities = get_dynatrace_data(requests_info, verify=False)
 for entity in entities:
     print(entity)
 
-
 # Testing new data collection functions
 metrics_request_info = prepare_dynatrace_request('metrics',
-                             dynatrace_tenant,
-                             dynatrace_api_token,
-                             time=get_from_time(minutes),
-                             page_size=100)
+                                                 dynatrace_tenant,
+                                                 dynatrace_api_token,
+                                                 time=get_from_time(minutes),
+                                                 page_size=100)
 
 stored_metrics = []
 metrics = get_dynatrace_data(metrics_request_info, verify=False)
@@ -44,9 +43,9 @@ for metric in metrics:
     stored_metrics.append(metric)
 
 problems_requests_info = prepare_dynatrace_request('problems',
-                              dynatrace_tenant,
-                              dynatrace_api_token,
-                              time=get_from_time(10000))
+                                                   dynatrace_tenant,
+                                                   dynatrace_api_token,
+                                                   time=get_from_time(10000))
 
 problems = get_dynatrace_data(problems_requests_info, verify=False)
 
@@ -54,19 +53,19 @@ for problem in problems:
     print(problem)
 
 events_requests_info = prepare_dynatrace_request('events',
-                            dynatrace_tenant,
-                            dynatrace_api_token,
-                            time=get_from_time(minutes),
-                            page_size=100)
+                                                 dynatrace_tenant,
+                                                 dynatrace_api_token,
+                                                 time=get_from_time(minutes),
+                                                 page_size=100)
 events = get_dynatrace_data(events_requests_info, verify=False)
 for event in events:
     print(event)
 
 synthetic_locations = prepare_dynatrace_request('synthetic_locations',
-                                         dynatrace_tenant,
-                                         dynatrace_api_token,
-                                         time=get_from_time(minutes),
-                                         page_size=100)
+                                                dynatrace_tenant,
+                                                dynatrace_api_token,
+                                                time=get_from_time(minutes),
+                                                page_size=100)
 
 locations = get_dynatrace_data(synthetic_locations, verify=False)
 for location in locations:
@@ -90,7 +89,6 @@ parameters = {
 end_time = datetime.datetime.now().isoformat() + 'Z'
 start_time = (datetime.datetime.now() - datetime.timedelta(hours=1)).isoformat() + 'Z'
 
-
 metrics_request_info = prepare_dynatrace_request('metrics',
                                                  dynatrace_tenant,
                                                  dynatrace_api_token,
@@ -111,9 +109,9 @@ metrics_params = {
 for metric_id in metric_ids:
     metrics_params['metricSelector'] = metric_id
     metrics_request_info = prepare_dynatrace_request('metrics_query',
-                                                      dynatrace_tenant,
-                                                      dynatrace_api_token,
-                                                      params=metrics_params)
+                                                     dynatrace_tenant,
+                                                     dynatrace_api_token,
+                                                     params=metrics_params)
 
     print("Metrics request info: " + str(metrics_request_info))
 
@@ -127,17 +125,3 @@ for metric_id in metric_ids:
             if len(metric['data'][0]['values']) > 1:
                 print(metric)
             series = zip(metric['data'][0]['timestamps'], metric['data'][0]['values'])
-
-
-# print('Timeseries test')
-# timeseries = get_dynatrace_data('metrics_query', dynatrace_tenant, dynatrace_api_token, time=get_from_time(1000),
-#                                 verify=False, params=metrics_params)
-
-# Dynatrace problem headers
-
-
-# TODO: 403 Forbidden from entity types and entities, get more privileges from Dynatrace
-
-# print ssl certificate from dynatrace entity
-
-# Autehnticate to Dynatrace API v2

@@ -60,3 +60,6 @@ local/passwords.conf
 local/splunk_ta_dynatrace_account.conf
 secrets.env
 Splunk_TA_Dynatrace-2.0.0.tar.gz
+appInspect_results.html
+Splunk_TA_Dynatrace-*
+Splunk_TA_Dynatrace*

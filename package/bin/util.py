@@ -10,7 +10,7 @@ import logging
 import logging.handlers
 import urllib3
 from typing import Union
-
+import hashlib
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -64,7 +64,8 @@ v2_params = {'metrics':
                   'mzSelector': 'mzSelector',
                   'from': 'from',
                   'to': 'to'},
-             'entities': {'entitySelector': 'type("HOST", "APPLICATION", "SERVICE", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE")'}}
+             'entities': {
+                 'entitySelector': 'type("HOST", "APPLICATION", "SERVICE", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE")'}}
 
 
 # Get current working directory
@@ -263,7 +264,11 @@ def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_s
     # Log all the things
     if opt_helper:
         opt_helper.log_debug(f'URL: {url}')
-        opt_helper.log_debug(f'Headers: {headers}')
+
+        # Hash auth token, so it doesn't show up in the logs
+        headers_with_hashed_auth = headers.copy()
+        hashlib.sha256(headers_with_hashed_auth['Authorization'].encode('utf-8')).hexdigest()
+        opt_helper.log_debug(f'Headers: {headers_with_hashed_auth}')
         opt_helper.log_debug(f'Params: {params}')
     try:
         response = requests.get(url, headers=headers, params=parameters, verify=verify)
@@ -321,11 +326,11 @@ def prepare_dynatrace_request(endpoint_name, tenant, api_token, params={}, time=
         prepared_params['pageSize'] = page_size
 
     if endpoint_name == 'entities' and entity_types:
-        return [(url, headers, {**prepared_params, 'entitySelector': f'type("{entity_type}")'}, selector) for entity_type in
+        return [(url, headers, {**prepared_params, 'entitySelector': f'type("{entity_type}")'}, selector) for
+                entity_type in
                 entity_types]
 
     return [(url, headers, prepared_params, selector)]
-
 
 
 def get_dynatrace_data(requests_info, verify=True, opt_helper=None):
@@ -338,7 +343,6 @@ def get_dynatrace_data(requests_info, verify=True, opt_helper=None):
                 combined_results.append(item)
 
     return combined_results
-
 
 
 def _get_dynatrace_data(url, headers, params, verify, opt_helper):
@@ -363,8 +367,6 @@ def _get_dynatrace_data(url, headers, params, verify, opt_helper):
             if opt_helper:
                 opt_helper.log_error(f'Error: {err}')
             break
-
-
 
 
 def get_metric_descriptors(tenant, api_token, verify=True):
@@ -445,6 +447,7 @@ v2_selectors = {'metrics': 'metrics',
                 'synthetic_nodes': 'synthetic/monitors',
                 'metrics_query': 'result'}
 
+
 # secrets = parse_secrets_env()
 # dynatrace_tenant = secrets['dynatrace_tenant']
 # dynatrace_api_token = secrets['dynatrace_api_token']
@@ -517,7 +520,6 @@ def parse_metric_selectors_text_area(textarea_input):
         parsed_metric_selectors.append(current_line)
 
     return parsed_metric_selectors
-
 
 # Usage example:
 # file_path = 'metric_selectors.txt'
