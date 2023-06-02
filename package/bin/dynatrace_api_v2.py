@@ -26,6 +26,8 @@ from solnlib.modular_input import checkpointer
 from splunktaucclib.modinput_wrapper import base_modinput as base_mi
 import requests
 import util
+from pathlib import Path
+
 
 
 # encoding = utf-8
@@ -99,10 +101,12 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
         # opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
 
+        # Certificate code
+        local_dir = os.path.abspath(os.path.join(Path(__file__).resolve().parent.parent, "local"))
+        helper.log_debug('local_dir: {}'.format(local_dir))
+        cert_file = os.path.join(local_dir, "cert.pem")
+        helper.log_debug('cert_file: {}'.format(cert_file))
 
-        # Log the script's current working directory
-        helper.log_debug('cwd: {}'.format(os.getcwd()))
-        opt_ssl_certificate_verification = 'local/cert.pem' if os.path.isfile('local/cert.pem') else True
         index = helper.get_arg("index")
 
         time_range = util.get_from_time(int(opt_dynatrace_collection_interval_minutes))
