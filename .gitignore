@@ -62,3 +62,10 @@ secrets.env
 Splunk_TA_Dynatrace-2.0.0.tar.gz
 Splunk_TA_Dynatrace*
 appInspect_results.html
+temporary_credentials/indexes.conf
+temporary_credentials/inputs.conf
+temporary_credentials/passwords.conf
+.dccache
+.idea/misc.xml
+.idea/misc.xml
+.idea/misc.xml
