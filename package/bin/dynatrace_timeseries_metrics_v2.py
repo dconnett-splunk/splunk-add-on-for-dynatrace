@@ -115,7 +115,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         helper.log_debug('Beginning collect_events')
 
         # opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
-        opt_ssl_certificate_verification = True
+        opt_ssl_certificate_verification = 'local/cert.pem' if os.path.isfile('local/cert.pem') else True
 
         # Retrieve Dynatrace account information
         dynatrace_account_input = helper.get_arg("dynatrace_account")

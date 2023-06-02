@@ -98,7 +98,11 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         endpoint = helper.get_arg("dynatrace_apiv2_endpoint")
         opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
         # opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
-        opt_ssl_certificate_verification = True
+
+
+        # Log the script's current working directory
+        helper.log_debug('cwd: {}'.format(os.getcwd()))
+        opt_ssl_certificate_verification = 'local/cert.pem' if os.path.isfile('local/cert.pem') else True
         index = helper.get_arg("index")
 
         time_range = util.get_from_time(int(opt_dynatrace_collection_interval_minutes))
