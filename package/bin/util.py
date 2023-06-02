@@ -11,7 +11,6 @@ import logging.handlers
 import urllib3
 from typing import Union
 
-
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 """util.py: This module contains utility functions for the package. These functions are used by the package's scripts.
@@ -39,15 +38,23 @@ dynatrace_environment_active_gate_v2 = 'https://{your-domain}/e/{your-environmen
 
 v2_endpoints = {'metrics': '/api/v2/metrics',
                 'metrics_query': '/api/v2/metrics/query',
-                'metrics_descriptors': '/api/v2/metrics/query/descriptors',
+                'metrics_descriptors': '/api/v2/metrics/{id}',
                 'metrics_timeseries': '/api/v2/metrics/query/timeseries',
                 'metrics_timeseries_descriptors': '/api/v2/metrics/query/timeseries/descriptors',
                 'metrics_timeseries_aggregates': '/api/v2/metrics/query/timeseries/aggregate',
                 'entities': '/api/v2/entities',
+                'entity': '/api/v2/entities/{id}',
                 'problems': '/api/v2/problems',
                 'events': '/api/v2/events',
                 'synthetic_locations': '/api/v2/synthetic/locations',
-                'synthetic_tests': '/api/v2/synthetic/executions',
+                'synthetic_tests_on_demand': '/api/v2/synthetic/executions',
+                'synthetic_test_on_demand': '/api/v2/synthetic/executions/{id}/fullReport',
+                'synthetic_monitors_http': '/api/v1/synthetic/monitors',
+                'synthetic_monitor_http': '/api/v1/synthetic/monitors/{id}',
+                'synthetic_monitors_http_v2': '/api/v2/synthetic/execution',
+
+                # TODO Change SUCCESS to Parameter for status, need to get both FAILED and SUCCESS
+                'synthetic_monitor_http_v2': '/api/v2/synthetic/execution/{id}/SUCCESS',
                 'synthetic_tests_results': '/api/v2/synthetic/tests/results'}
 
 v2_params = {'metrics':
@@ -64,7 +71,26 @@ v2_params = {'metrics':
                   'mzSelector': 'mzSelector',
                   'from': 'from',
                   'to': 'to'},
-             'entities': {'entitySelector': 'type("HOST", "APPLICATION", "SERVICE", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE")'}}
+             'entities': {
+                 'entitySelector': 'type("HOST", "APPLICATION", "SERVICE", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE")'}}
+
+# These selectors are used to parse the response from the Dynatrace API.
+# AKA The top level key in the map returned by the API.
+v2_selectors = {'metrics': 'metrics',
+                'metrics_descriptors': 'metricId',
+                'entities': 'entities',
+                'entity': 'entities',
+                'problems': 'problems',
+                'events': 'events',
+                'synthetic_locations': 'locations',
+                'synthetics_on_demand': 'executions',
+                'synthetic_monitors_http': 'monitors',
+                'synthetic_monitor_http': 'entityId',
+                'synthetic_monitor_http_v2': 'monitorId',
+                'synthetic_tests_on_demand': 'executions',
+                'synthetic_test_on_demand': 'entityId',
+                'synthetic_nodes': 'monitors',
+                'metrics_query': 'result'}
 
 
 # Get current working directory
@@ -210,6 +236,7 @@ def get_from_time(minutes: int = 60) -> int:
     return from_time
 
 
+# Old function for getting data from Dynatrace API v2, remove in future
 def get_dynatrace_data(endpoint, tenant, api_token, params={}, time=None, page_size=100, verify=True, opt_helper=None):
     """Get Dynatrace data from the API v2. 
 
@@ -308,37 +335,95 @@ def prepare_dynatrace_request(endpoint_name, tenant, api_token, params={}, time=
     endpoint_uri = v2_endpoints[endpoint_name]
     selector = v2_selectors[endpoint_name]
     url = tenant + endpoint_uri
+
+    # Handle entity endpoint, fix this ugly hack later
+    if endpoint_name == 'entity':
+        # Format string replace id in endpoint_uri
+        url = url.format(id=params['entity_id'])
+        # Remove entity_id from params
+        params.pop('entity_id')
+
+    # Handle synthetic monitor endpoint, wildcard the suffix
+    elif 'synthetic_monitor_http' in endpoint_name:
+        url = url.format(id=params['entityId'])
+        params.pop('entityId')
+
+    elif 'synthetic_test_on_demand' in endpoint_name:
+        url = url.format(id=params['executionId'])
+        params.pop('executionId')
+
+    elif 'metrics_descriptors' in endpoint_name:
+        url = url.format(id=params['metricSelector'])
+        params.pop('metricSelector')
+
     headers = {
         'Authorization': 'Api-Token {}'.format(api_token),
         'version': 'Splunk_TA_Dynatrace'
     }
+
+    # TODO Not PEP8 compliant, need to really clean this up
     prepared_params = {
         **params,
         **({'fields': 'unit,aggregationTypes'} if 'metrics' in selector else {}),
-        **({'writtenSince': str(time)} if 'metrics' in selector and time else {'from': str(time)} if time else {}),
+        **({'writtenSince': str(time)} if 'metrics' in selector and time else {
+            'from': str(time)} if time and endpoint_name != 'synthetic_tests_on_demand' else {}),
+        **({'schedulingFrom': str(time)} if endpoint_name == 'synthetic_tests_on_demand' and time else {}),
     }
     if page_size:
         prepared_params['pageSize'] = page_size
 
     if endpoint_name == 'entities' and entity_types:
-        return [(url, headers, {**prepared_params, 'entitySelector': f'type("{entity_type}")'}, selector) for entity_type in
+        return [(url, headers, {**prepared_params, 'entitySelector': f'type("{entity_type}")'}, selector) for
+                entity_type in
                 entity_types]
 
     return [(url, headers, prepared_params, selector)]
 
 
+def remove_sensitive_info_recursive(data, keys_to_remove):
+    if isinstance(data, dict):
+        data = {key: remove_sensitive_info_recursive(value, keys_to_remove) for key, value in data.items()
+                if key not in keys_to_remove}
+    elif isinstance(data, list):
+        data = [remove_sensitive_info_recursive(item, keys_to_remove) for item in data]
+    return data
+
 
 def get_dynatrace_data(requests_info, verify=True, opt_helper=None):
     combined_results = []
+    resolution = None
 
     for url, headers, params, selector in requests_info:
+        # Check if the response is a list, if so, return early
+
+        # Notes: This next section contains code that usually returns a response, but a few of
+        # the endpoints must be returned early
         for response in _get_dynatrace_data(url, headers, params, verify, opt_helper):
-            parsed_response = response[selector]
+            # Check if the response has an entityId, if so, return early, this if for entities endpoint
+            if 'entityId' in response and isinstance(response, dict):
+                return response
+            # Check if monitorId is a top level key, return immediately if so this is for synthetic endpoint
+            elif 'monitorId' in response and isinstance(response, dict):
+                return response
+            # This is for metrics endpoint
+            elif 'result' in selector:
+                resolution = response['resolution']
+
+            # This next line grabs a specific key from the response, if it doesn't exist, it returns the response
+            parsed_response = response.get(selector, response)
+
+            # Add resolution to parsed response if it exists: this is metric specific code
+            # parsed response is a list and resolution is a string
+            if resolution:
+                parsed_response[0]['resolution'] = resolution
+
+            # Check if the parsed response is a list, if so, return early
+            if isinstance(parsed_response, list):
+                return parsed_response
             for item in parsed_response:
                 combined_results.append(item)
 
     return combined_results
-
 
 
 def _get_dynatrace_data(url, headers, params, verify, opt_helper):
@@ -363,8 +448,6 @@ def _get_dynatrace_data(url, headers, params, verify, opt_helper):
             if opt_helper:
                 opt_helper.log_error(f'Error: {err}')
             break
-
-
 
 
 def get_metric_descriptors(tenant, api_token, verify=True):
@@ -435,15 +518,6 @@ def query_timeseries_data(metric_id, tenant, api_token, start_time, end_time, re
 # dynatrace_tenant = os.environ['dynatrace_tenant']
 # dynatrace_api_token = os.environ['dynatrace_api_token']
 
-
-v2_selectors = {'metrics': 'metrics',
-                'entities': 'entities',
-                'problems': 'problems',
-                'events': 'events',
-                'synthetic_locations': 'locations',
-                'synthetic_tests': 'synthetic/executions',
-                'synthetic_nodes': 'synthetic/monitors',
-                'metrics_query': 'result'}
 
 # secrets = parse_secrets_env()
 # dynatrace_tenant = secrets['dynatrace_tenant']
@@ -517,7 +591,6 @@ def parse_metric_selectors_text_area(textarea_input):
         parsed_metric_selectors.append(current_line)
 
     return parsed_metric_selectors
-
 
 # Usage example:
 # file_path = 'metric_selectors.txt'

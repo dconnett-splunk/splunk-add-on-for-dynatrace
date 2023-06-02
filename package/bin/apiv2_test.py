@@ -15,6 +15,77 @@ dynatrace_api_token = secrets['dynatrace_api_token']
 
 minutes = 1000
 time_range = get_from_time(minutes)
+
+
+synthetic_monitor_http = prepare_dynatrace_request('synthetic_monitors_http',
+                                                   dynatrace_tenant,
+                                                   dynatrace_api_token,
+                                                   time=time_range,
+                                                   page_size=100)
+
+# Fetch the data using the prepared request information
+synthetic_monitor_http = get_dynatrace_data(synthetic_monitor_http, verify=False)
+
+for test in synthetic_monitor_http:
+    print(test)
+
+for monitor in synthetic_monitor_http:
+    requests_info = prepare_dynatrace_request('synthetic_monitor_http_v2',
+                                              dynatrace_tenant,
+                                              dynatrace_api_token,
+                                              params={'entityId': monitor['entityId']})
+    monitor_http_results = get_dynatrace_data(requests_info, verify=False)
+    #print(monitor_http_results)
+
+    # Find all keys in the dictionary named responseBody and delete them
+    # Delete all responseBody keys and values from monitor_http_results
+    # The path in the dictionary is locationsExecutionResults requestResults responseBody
+
+    keys_to_remove = ['responseBody', 'peerCertificateDetails']
+    print(remove_sensitive_info_recursive(monitor_http_results, keys_to_remove))
+
+
+# On Demand Executions
+# Get all the on demand executions
+
+on_demand_executions = prepare_dynatrace_request('synthetic_tests_on_demand', dynatrace_tenant, dynatrace_api_token)
+on_demand_executions = get_dynatrace_data(on_demand_executions, verify=False)
+#print(on_demand_executions)
+
+execution_ids = []
+for execution in on_demand_executions:
+    execution_ids.append(execution['executionId'])
+
+for execution_id in execution_ids:
+    on_demand_execution_request_info = prepare_dynatrace_request('synthetic_test_on_demand',
+                                                    dynatrace_tenant,
+                                                    dynatrace_api_token,
+                                                    params={'executionId': execution_id})
+    on_demand_execution = get_dynatrace_data(on_demand_execution_request_info, verify=False)
+    keys_to_remove = ['responseBody', 'peerCertificateDetails']
+    print(remove_sensitive_info_recursive(on_demand_execution, keys_to_remove))
+
+
+
+
+
+
+
+# Store requests:entityId in a list
+# entity_ids = []
+# for request in monitor_http_results['requests']:
+#     entity_ids.append(request['entityId'])
+# print(entity_ids)
+
+# for each entity id, get the request details(
+# for entity_id in entity_ids:
+#     synthetic_monitor_http_steps = prepare_dynatrace_request('synthetic_monitor_http_v2',
+#                                                          dynatrace_tenant,
+#                                                          dynatrace_api_token,
+#                                                          params={'entityId': entity_id})
+#     synthetic_monitor_http_steps = get_dynatrace_data(synthetic_monitor_http_steps, verify=False)
+#     print(synthetic_monitor_http_steps)
+
 entity_types = ['HOST', 'PROCESS_GROUP_INSTANCE', 'PROCESS_GROUP', 'APPLICATION', 'SERVICE']
 requests_info = prepare_dynatrace_request('entities',
                                           dynatrace_tenant,
@@ -23,11 +94,19 @@ requests_info = prepare_dynatrace_request('entities',
                                           page_size=100,
                                           entity_types=entity_types)
 # Fetch the data using the prepared request information
-entities = get_dynatrace_data(requests_info, verify=False)
+entities_list = get_dynatrace_data(requests_info, verify=False)
+
+
 
 # Print the fetched data
-for entity in entities:
-    print(entity)
+for entity in entities_list:
+    print(entity['entityId'])
+    entity_info = get_dynatrace_data(prepare_dynatrace_request('entity', dynatrace_tenant, dynatrace_api_token,
+                                                               params={'entity_id': entity['entityId']}), verify=False)
+    print(entity_info)
+
+
+
 
 
 # Testing new data collection functions
@@ -101,6 +180,7 @@ metrics = get_dynatrace_data(metrics_request_info, verify=False)
 metric_ids = []
 for metric in metrics:
     print(metric['metricId'])
+    print(metric['unit'])
     metric_ids.append(metric['metricId'])
 
 metrics_params = {
