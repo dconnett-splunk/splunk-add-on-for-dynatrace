@@ -2,7 +2,7 @@
     "meta": {
         "name": "Splunk_TA_Dynatrace",
         "displayName": "Dynatrace Add-on for Splunk",
-        "version": "2.0.0",
+        "version": "2.0.4",
         "restRoot": "Splunk_TA_Dynatrace",
         "schemaVersion": "2.0.0"
     },
@@ -1009,6 +1009,14 @@
                                     {
                                         "value": "synthetic_locations",
                                         "label": "Synthetic Locations"
+                                    },
+                                    {
+                                        "value": "synthetic_monitors_http",
+                                        "label": "Synthetic Monitors"
+                                    },
+                                    {
+                                        "value": "synthetic_tests_on_demand",
+                                        "label": "On Demand Executions"
                                     }
                                 ]
                             }

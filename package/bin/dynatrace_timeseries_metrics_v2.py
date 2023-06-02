@@ -228,6 +228,16 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                                                      verify=opt_ssl_certificate_verification,
                                                      opt_helper=helper)
 
+            # Adding second request to get metadata on metrics
+            metric_request_info = util.prepare_dynatrace_request('metrics_descriptors',
+                                                              opt_dynatrace_tenant,
+                                                              opt_dynatrace_api_token,
+                                                              params={'metricSelector': metric_selector})
+
+            metric_descriptor_data = util.get_dynatrace_data(metric_request_info,
+                                                        verify=opt_ssl_certificate_verification,
+                                                        opt_helper=helper)
+
             def process_timeseries_data(timeseries_data):
                 for entry in timeseries_data['data']:
                     dimensions = entry['dimensions']
@@ -258,8 +268,10 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                         event_data = {
                             'metric_name': timeseries_data['metricId'],
                             'value': metric_value,
+                            'unit': metric_descriptor_data['unit'],
                             'dynatraceTenant': opt_dynatrace_tenant,
                             'metricSelector': metric_selector,
+                            'resolution': timeseries_data['resolution']
                         }
 
                         for key, value in item.items():
