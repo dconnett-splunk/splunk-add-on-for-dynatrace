@@ -30,6 +30,8 @@ from solnlib.modular_input import checkpointer
 from splunktaucclib.modinput_wrapper import base_modinput  as base_mi 
 import requests
 import util
+from pathlib import Path
+
 
 
 
@@ -114,8 +116,12 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         # Log the start of the collect_events function
         helper.log_debug('Beginning collect_events')
 
-        # opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
-        opt_ssl_certificate_verification = 'local/cert.pem' if os.path.isfile('local/cert.pem') else True
+        # Certificate code
+        local_dir = os.path.abspath(os.path.join(Path(__file__).resolve().parent.parent, "local"))
+        helper.log_debug('local_dir: {}'.format(local_dir))
+        cert_file = os.path.join(local_dir, "cert.pem")
+        helper.log_debug('cert_file: {}'.format(cert_file))
+
 
         # Retrieve Dynatrace account information
         dynatrace_account_input = helper.get_arg("dynatrace_account")
