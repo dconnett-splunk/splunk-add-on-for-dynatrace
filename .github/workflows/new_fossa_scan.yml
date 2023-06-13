@@ -1,0 +1,14 @@
+fossaScan:
+      name: SCA Scan using FOSSA
+      runs-on: ubuntu-latest
+      needs: [codeqlScan, codacyScan, appScan]
+
+      steps:
+        - name: Check out the code
+          uses: actions/checkout@v2
+          with:
+            fetch-depth: 0
+        - name: Run FOSSA Scan
+          uses: fossas/fossa-action@v1
+          with:
+            api-key: secrets.FOSSA_API_KEY
