@@ -3,6 +3,42 @@ jobs:
   fossa-scan:
    uses: splunk/oss-scanning/.github/workflows/oss-scan.yml@main
    secrets: inherit
+
+  fossa-report:
+    needs: fossa-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Generate and upload FOSSA JSON report
+        run: |
+          fossa report attribution --format json > fossa.json
+
+      - name: Upload FOSSA report
+        uses: actions/upload-artifact@v2
+        with:
+          name: fossa-report
+          path: fossa.json
+
+  send-to-splunk:
+    needs: fossa-report
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: fossa-report
+
+    - name: Install httpie
+      run: sudo apt-get install httpie
+
+    - name: Send data to Splunk
+      run: http -j POST ${{ secrets.HEC_URL }} "Authorization: Splunk ${{ secrets.HEC_TOKEN }}" < fossa-report/fossa.json
+
 on:
   push:
     branches:
