@@ -1,4 +1,4 @@
-name: OSS Scan
+name: New OSS Scan
 jobs:
   fossaScan:
     name: SCA Scan using FOSSA
