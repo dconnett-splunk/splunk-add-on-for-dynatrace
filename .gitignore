@@ -67,5 +67,5 @@ temporary_credentials/inputs.conf
 temporary_credentials/passwords.conf
 .dccache
 .idea/misc.xml
-.idea/misc.xml
-.idea/misc.xml
+/.idea/
+/releases/
