@@ -17,7 +17,7 @@ import filecmp
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 """util.py: This module contains utility functions for the package. These functions are used by the package's scripts.
-    
+
     Functions:
         get_dynatrace_tenant: Get the Dynatrace tenant from the input.
         get_dynatrace_api_token: Get the Dynatrace API token from the input.
@@ -194,7 +194,7 @@ def get_dynatrace_metrics_descriptors(tenant, api_token, metric_selector, time=N
         time (str): Time range for the problems. Defaults to None.
         page_size (int): Number of problems to return. Defaults to 100.
 
-    Returns: 
+    Returns:
         json: JSON response from the API.
     """
     # Set the headers
@@ -303,12 +303,13 @@ def get_dynatrace_data(requests_info, verify=True, opt_helper=None):
     resolution = None
 
     for url, headers, params, selector in requests_info:
-        # Check if the response is a list, if so, return early
-
-        # Notes: This next section contains code that usually returns a response, but a few of
-        # the endpoints must be returned early
         for response in _get_dynatrace_data(url, headers, params, verify, opt_helper):
-            # Check if the response has an entityId, if so, return early, this if for entities endpoint
+            # In case of an error, _get_dynatrace_data can yield None
+            if response is None:
+                opt_helper.log_error(f"Error: Failed to get data from {url}")
+                continue  # Skip this iteration and proceed with the next one, or you can return early if needed
+
+            # Check if the response has an entityId, if so, return early, this is for entities endpoint
             if 'entityId' in response and isinstance(response, dict):
                 return response
             # Check if monitorId is a top level key, return immediately if so this is for synthetic endpoint
@@ -349,13 +350,12 @@ def _get_dynatrace_data(url, headers, params, verify, opt_helper):
 
             if 'nextPageKey' not in parsed_response or parsed_response['nextPageKey'] is None:
                 break
-            params = {}
-            params['nextPageKey'] = parsed_response['nextPageKey']
+            params = {'nextPageKey': parsed_response['nextPageKey']}
 
         except requests.exceptions.HTTPError as err:
-            print(err)
             if opt_helper:
                 opt_helper.log_error(f'Error: {err}')
+            yield None
             break
 
 
@@ -529,7 +529,7 @@ def get_ssl_certificate_verification(helper):
         opt_ssl_certificate_verification = user_uploaded_certificate
     # Default to True if no valid file is found
     else:
-        opt_ssl_certificate_verification = splunk_cert_dir
+        opt_ssl_certificate_verification = True
 
     return opt_ssl_certificate_verification
 
