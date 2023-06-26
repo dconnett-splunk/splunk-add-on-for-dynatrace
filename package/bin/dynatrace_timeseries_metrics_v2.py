@@ -113,10 +113,6 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         # Log the start of the collect_events function
         helper.log_debug('Beginning collect_events')
 
-        opt_ssl_certificate_verification = util.get_ssl_certificate_verification(helper)
-
-
-
         # Retrieve Dynatrace account information
         dynatrace_account_input = helper.get_arg("dynatrace_account")
         dynatrace_tenant_input = dynatrace_account_input["username"]
@@ -131,68 +127,22 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         else:
             opt_dynatrace_tenant = 'https://' + dynatrace_tenant_input
 
-        # Log the verify_ssl value
-        helper.log_debug('verify_ssl: {}'.format(opt_ssl_certificate_verification))
-
         # Retrieve Dynatrace collection interval and other arguments
         opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
         opt_dynatrace_collection_interval = int(helper.get_arg('dynatrace_collection_interval'))
         opt_dynatrace_entity_endpoints = helper.get_arg('entity_endpoints')
-        opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
         dynatrace_metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
+
+        opt_ssl_certificate_verification = util.get_ssl_certificate_verification(helper)
+
+        # Log the verify_ssl value
+        helper.log_debug('verify_ssl: {}'.format(opt_ssl_certificate_verification))
 
         # Log all previously retrieved arguments
         helper.log_debug('dynatrace_tenant: {}'.format(opt_dynatrace_tenant))
         helper.log_debug('dynatrace_collection_interval: {}'.format(opt_dynatrace_collection_interval))
         helper.log_debug('dynatrace_collection_interval_minutes: {}'.format(opt_dynatrace_collection_interval_minutes))
         helper.log_debug('dynatrace_metric_selectors: {}'.format(dynatrace_metric_selectors))
-
-
-
-        COUNT = 'COUNT'
-        AVERAGE = 'AVG'
-        hecTime = 0
-
-        service_metrics_avg = ['com.dynatrace.builtin:app.useractionduration',
-                                'com.dynatrace.builtin:service.responsetime',
-                                'com.dynatrace.builtin:service.failurerate'
-                              ]
-        service_metrics_count = ['com.dynatrace.builtin:app.apdex',
-                            'com.dynatrace.builtin:app.useractionsperminute',
-                            'com.dynatrace.builtin:service.requestspermin'
-                          ]
-        process_metrics = ['com.dynatrace.builtin:pgi.cpu.usage',
-                            'com.dynatrace.builtin:pgi.mem.usage',
-                            'com.dynatrace.builtin:pgi.nic.bytesreceived',
-                            'com.dynatrace.builtin:pgi.nic.bytessent',
-                            'com.dynatrace.builtin:pgi.suspension',
-                            'com.dynatrace.builtin:pgi.workerprocesses'
-                          ]
-
-        host_metrics = ['com.dynatrace.builtin:host.cpu.idle',
-                            'com.dynatrace.builtin:host.cpu.iowait',
-                            'com.dynatrace.builtin:host.cpu.other',
-                            'com.dynatrace.builtin:host.cpu.steal',
-                            'com.dynatrace.builtin:host.cpu.system',
-                            'com.dynatrace.builtin:host.cpu.user',
-                            'com.dynatrace.builtin:host.mem.used',
-                            'com.dynatrace.builtin:host.mem.pagefaults',
-                            'com.dynatrace.builtin:host.nic.bytesreceived',
-                            'com.dynatrace.builtin:host.nic.bytessent',
-                            'com.dynatrace.builtin:host.nic.packetsreceived',
-                            'com.dynatrace.builtin:host.nic.packetsreceiveddropped',
-                            'com.dynatrace.builtin:host.nic.packetsreceivederrors',
-                            'com.dynatrace.builtin:host.nic.packetssentdropped',
-                            'com.dynatrace.builtin:host.nic.packetssenterrors',
-                            'com.dynatrace.builtin:host.disk.readtime',
-                            'com.dynatrace.builtin:host.disk.writetime',
-                            'com.dynatrace.builtin:host.disk.freespacepercentage',
-                            'com.dynatrace.builtin:host.disk.availablespace',
-                            'com.dynatrace.builtin:host.disk.usedspace'
-                          ]
-
-        synthetic_metrics = ['com.dynatrace.builtin:webcheck.availability',
-                              'com.dynatrace.builtin:webcheck.performance.actionduration']
 
 
         # Get textbox metrics input
@@ -268,7 +218,6 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                         event_data = {
                             'metric_name': timeseries_data['metricId'],
                             'value': metric_value,
-                            'unit': metric_descriptor_data['unit'],
                             'dynatraceTenant': opt_dynatrace_tenant,
                             'metricSelector': metric_selector,
                             'resolution': timeseries_data['resolution']
