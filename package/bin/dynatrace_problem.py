@@ -25,6 +25,7 @@ from solnlib import log
 from solnlib.modular_input import checkpointer
 from splunktaucclib.modinput_wrapper import base_modinput as base_mi
 import requests
+import util
 
 # encoding = utf-8
 
@@ -88,7 +89,7 @@ class ModInputdynatrace_problem(base_mi.BaseModInput):
         '''
 
         # opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
-        opt_ssl_certificate_verification = True
+        opt_ssl_certificate_verification = util.get_ssl_certificate_verification(helper)
 
         '''
         Force HTTPS

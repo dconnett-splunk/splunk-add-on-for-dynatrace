@@ -10,6 +10,9 @@ import logging
 import logging.handlers
 import urllib3
 from typing import Union
+from pathlib import Path
+import shutil
+import filecmp
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -497,6 +500,38 @@ def parse_metric_selectors_text_area(textarea_input):
         parsed_metric_selectors.append(current_line)
 
     return parsed_metric_selectors
+
+
+def get_ssl_certificate_verification(helper):
+    # Certificate code
+    local_dir = os.path.abspath(os.path.join(Path(__file__).resolve().parent.parent, "local"))
+    helper.log_debug('local_dir: {}'.format(local_dir))
+    cert_file = os.path.join(local_dir, "cert.pem")
+    helper.log_debug('cert_file: {}'.format(cert_file))
+    user_uploaded_certificate = helper.get_global_setting('user_certificate')
+
+    # Check if local user_certificate file, exists, is the same as the one in the UI, if not update the file on disk
+    if os.path.isfile(cert_file):
+        if user_uploaded_certificate:
+            if not filecmp.cmp(cert_file, user_uploaded_certificate):
+                helper.log_debug('Updating cert.pem')
+                shutil.copy(user_uploaded_certificate, cert_file)
+
+    helper.log_debug('user_uploaded_certificate: {}'.format(user_uploaded_certificate))
+
+    # Set the default Splunk Cert store location $SPLUNK_HOME/etc/auth/
+    splunk_cert_dir = os.environ['REQUESTS_CA_BUNDLE'] = os.path.join(os.environ['SPLUNK_HOME'], 'etc', 'auth')
+
+    if os.path.isfile(cert_file):
+        opt_ssl_certificate_verification = cert_file
+    # Check for user_uploaded_certificate
+    elif os.path.isfile(user_uploaded_certificate):
+        opt_ssl_certificate_verification = user_uploaded_certificate
+    # Default to True if no valid file is found
+    else:
+        opt_ssl_certificate_verification = splunk_cert_dir
+
+    return opt_ssl_certificate_verification
 
 # Usage example:
 # file_path = 'metric_selectors.txt'

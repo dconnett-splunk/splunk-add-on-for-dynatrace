@@ -101,13 +101,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
         # opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
 
-        # Certificate code
-        local_dir = os.path.abspath(os.path.join(Path(__file__).resolve().parent.parent, "local"))
-        helper.log_debug('local_dir: {}'.format(local_dir))
-        cert_file = os.path.join(local_dir, "cert.pem")
-        helper.log_debug('cert_file: {}'.format(cert_file))
-
-        opt_ssl_certificate_verification = cert_file if os.path.isfile(cert_file) else True
+        opt_ssl_certificate_verification = util.get_ssl_certificate_verification(helper)
 
 
         index = helper.get_arg("index")
