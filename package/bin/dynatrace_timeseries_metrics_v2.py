@@ -3,10 +3,7 @@ import sys
 import time
 import datetime
 import json
-
-
-
-
+from pathlib import Path
 
 bin_dir = os.path.basename(__file__)
 
@@ -30,6 +27,8 @@ from solnlib.modular_input import checkpointer
 from splunktaucclib.modinput_wrapper import base_modinput  as base_mi 
 import requests
 import util
+from tempfile import NamedTemporaryFile
+
 
 
 
@@ -114,13 +113,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         # Log the start of the collect_events function
         helper.log_debug('Beginning collect_events')
 
-        # Certificate code
-        local_dir = os.path.abspath(os.path.join(Path(__file__).resolve().parent.parent, "local"))
-        helper.log_debug('local_dir: {}'.format(local_dir))
-        cert_file = os.path.join(local_dir, "cert.pem")
-        helper.log_debug('cert_file: {}'.format(cert_file))
-
-        opt_ssl_certificate_verification = cert_file if os.path.isfile(cert_file) else True
+        opt_ssl_certificate_verification = util.get_ssl_certificate_verification(helper)
 
 
 
