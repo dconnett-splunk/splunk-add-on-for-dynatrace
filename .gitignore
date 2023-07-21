@@ -69,3 +69,5 @@ temporary_credentials/passwords.conf
 .idea/misc.xml
 /.idea/
 /releases/
+*.pkl
+.idea/splunk-add-on-for-dynatrace.iml
