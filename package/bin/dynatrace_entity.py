@@ -26,6 +26,7 @@ from solnlib.modular_input import checkpointer
 from splunktaucclib.modinput_wrapper import base_modinput as base_mi
 import requests
 import util
+import math
 
 
 # encoding = utf-8
@@ -105,9 +106,9 @@ class ModInputdynatrace_entity(base_mi.BaseModInput):
         opt_dynatrace_collection_interval = helper.get_arg('dynatrace_collection_interval')
         opt_dynatrace_entity_endpoints = helper.get_arg('entity_endpoints')
 
-        time_offset = int(opt_dynatrace_collection_interval) * 1000
-        current_time = int(round(time.time() * 1000))
-        offset_time = current_time - time_offset
+        minutes = int(opt_dynatrace_collection_interval)
+        current_time = util.get_from_time_utc(minutes=0)  # Get current time in UTC in milliseconds
+        offset_time = util.get_from_time_utc(minutes=minutes)  # Get time 'minutes' minutes ago in UTC in milliseconds
 
         headers = {'Authorization': 'Api-Token {}'.format(opt_dynatrace_api_token),
                    'version': 'Splunk TA 1.0.3'}
