@@ -28,6 +28,7 @@ from splunktaucclib.modinput_wrapper import base_modinput  as base_mi
 import requests
 import util
 from tempfile import NamedTemporaryFile
+import metrics_util
 
 
 
@@ -107,115 +108,102 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         pass
 
     def collect_events(helper, ew):
-        ''' Updated for Splunk 8 '''
-        '''SSL Verification'''
-
-        # Log the start of the collect_events function
         helper.log_debug('Beginning collect_events')
 
-        # Retrieve Dynatrace account information
         dynatrace_account_input = helper.get_arg("dynatrace_account")
         dynatrace_tenant_input = dynatrace_account_input["username"]
         opt_dynatrace_api_token = dynatrace_account_input["password"]
         index = helper.get_arg("index")
 
-        # Ensure the Dynatrace tenant URL starts with 'https://'
-        if dynatrace_tenant_input.startswith('https://'):
-            opt_dynatrace_tenant = dynatrace_tenant_input
-        elif dynatrace_tenant_input.startswith('http://'):
-            opt_dynatrace_tenant = dynatrace_tenant_input.replace('http://', 'https://')
-        else:
-            opt_dynatrace_tenant = 'https://' + dynatrace_tenant_input
+        opt_dynatrace_tenant = util.parse_url(dynatrace_tenant_input)
 
-        # Retrieve Dynatrace collection interval and other arguments
         opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
-        opt_dynatrace_collection_interval = int(helper.get_arg('dynatrace_collection_interval'))
         opt_dynatrace_entity_endpoints = helper.get_arg('entity_endpoints')
         dynatrace_metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
 
-        opt_ssl_certificate_verification = util.get_ssl_certificate_verification(helper)
         opt_ssl_certificate_verification = False
 
-        # Log the verify_ssl value
-        helper.log_debug('verify_ssl: {}'.format(opt_ssl_certificate_verification))
-
-        # Log all previously retrieved arguments
-        helper.log_debug('dynatrace_tenant: {}'.format(opt_dynatrace_tenant))
-        helper.log_debug('dynatrace_collection_interval: {}'.format(opt_dynatrace_collection_interval))
-        helper.log_debug('dynatrace_collection_interval_minutes: {}'.format(opt_dynatrace_collection_interval_minutes))
-        helper.log_debug('dynatrace_metric_selectors: {}'.format(dynatrace_metric_selectors))
-
-        # Get textbox metrics input
-        # dynatrace_metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
-        # for metric_selector in util.parse_metric_selectors_text_area(dynatrace_metric_selectors):
-        #     print(metric_selector)
-        #     helper.log_info("Processing Metric Selector: %s" % metric_selector)
+        helper.log_debug(f'verify_ssl: {opt_ssl_certificate_verification}')
+        helper.log_debug(f'dynatrace_tenant: {opt_dynatrace_tenant}')
+        helper.log_debug(f'dynatrace_collection_interval_minutes: {opt_dynatrace_collection_interval_minutes}')
+        helper.log_debug(f'dynatrace_metric_selectors: {dynatrace_metric_selectors}')
 
         PAGE_SIZE = 100
 
-        def prepare_request(api_type, tenant, token, params):
-            return util.prepare_dynatrace_request(api_type, tenant, token, params=params)
+        session = requests.Session()
+        session.verify = opt_ssl_certificate_verification
 
-        def get_data(request_info, verify, helper):
-            return util.get_dynatrace_data(request_info, verify=verify, opt_helper=helper)
-
-        def prepare_and_get_data(api_type, tenant, token, params, verify, helper):
-            request_info = prepare_request(api_type, tenant, token, params)
-            helper.log_debug(f"Request Info: {request_info}")
-            data = get_data(request_info, verify, helper)
-
-            if data is None:
-                helper.log_error(f"Failed to fetch data for request: {request_info}")
-                # Handle the error as needed: retry, return early, raise exception, etc.
-
-            return data
-
-        def process_timeseries_data(timeseries_data):
-            for entry in timeseries_data['data']:
-                dimensions = entry['dimensions']
-                timestamps = entry['timestamps']
-                values = entry['values']
-                dimension_map = entry['dimensionMap']
-
-                for timestamp, value in zip(timestamps, values):
-                    item = {**dimension_map, 'timestamp': timestamp, 'value': value,
-                            **dict(zip(dimension_map.keys(), dimensions))}
-                    yield item
-
-        for metric_selector in util.parse_metric_selectors_text_area(dynatrace_metric_selectors):
+        for metric_selector in metrics_util.parse_metric_selectors_text_area(dynatrace_metric_selectors):
             helper.log_debug(f"Processing Metric Selector: {metric_selector}")
 
             end_time = f"{datetime.datetime.now().isoformat()}Z"
-            start_time = f"{(datetime.datetime.now() - datetime.timedelta(hours=1)).isoformat()}Z"
+            start_time = f"{(datetime.datetime.now() - datetime.timedelta(minutes=opt_dynatrace_collection_interval_minutes)).isoformat()}Z"
 
             params = {'metricSelector': metric_selector, 'startTimestamp': start_time, 'endTimestamp': end_time,
                       'pageSize': PAGE_SIZE}
 
-            dynatrace_data = prepare_and_get_data('metrics_query', opt_dynatrace_tenant, opt_dynatrace_api_token,
-                                                  params, opt_ssl_certificate_verification, helper)
+            dynatrace_data = metrics_util.prepare_and_get_data('metrics_query', opt_dynatrace_tenant, opt_dynatrace_api_token,
+                                                  params, session, helper)
 
-            metric_descriptor_data = prepare_and_get_data('metrics_descriptors', opt_dynatrace_tenant,
+            metric_descriptor_data = metrics_util.prepare_and_get_data('metrics_descriptors', opt_dynatrace_tenant,
                                                           opt_dynatrace_api_token, {'metricSelector': metric_selector},
-                                                          opt_ssl_certificate_verification, helper)
+                                                          session, helper)
 
             for timeseries_data in dynatrace_data:
                 if timeseries_data['data']:
                     helper.log_debug(f"Processing Metric: {timeseries_data['metricId']}")
                     helper.log_debug(f"Writing data to index: {index}")
 
-                    for item in process_timeseries_data(timeseries_data):
-                        event_data = {
-                            **item,
-                            **{'metric_name': timeseries_data['metricId'], 'value': item['value'],
-                               'dynatraceTenant': opt_dynatrace_tenant, 'metricSelector': metric_selector,
-                               'resolution': timeseries_data['resolution']},
-                            **({'unit': timeseries_data['unit']} if 'unit' in timeseries_data else {})
-                        }
-
+                    for item in metrics_util.process_timeseries_data(timeseries_data):
+                        event_data = metrics_util.build_event_data(item, timeseries_data, metric_descriptor_data,
+                                                      opt_dynatrace_tenant, metric_selector)
                         serialized = json.dumps(event_data)
                         event = helper.new_event(data=serialized, time=item['timestamp'], index=index)
 
                         ew.write_event(event)
+
+        session.close()
+
+    def parse_url(url):
+        if not url.startswith('https://'):
+            if url.startswith('http://'):
+                return url.replace('http://', 'https://')
+            else:
+                return 'https://' + url
+        return url
+
+    def prepare_and_get_data(api_type, tenant, token, params, session, helper):
+        request_info = util.prepare_dynatrace_request(api_type, tenant, token, params=params)
+        helper.log_debug(f"Request Info: {request_info}")
+        data = util.get_dynatrace_data(session, request_info, opt_helper=helper)
+
+        if data is None:
+            helper.log_error(f"Failed to fetch data for request: {request_info}")
+            # Handle the error as needed: retry, return early, raise exception, etc.
+
+        return data
+
+    def process_timeseries_data(timeseries_data):
+        for entry in timeseries_data['data']:
+            dimensions = entry['dimensions']
+            timestamps = entry['timestamps']
+            values = entry['values']
+            dimension_map = entry['dimensionMap']
+
+            for timestamp, value in zip(timestamps, values):
+                item = {**dimension_map, 'timestamp': timestamp, 'value': value,
+                        **dict(zip(dimension_map.keys(), dimensions))}
+                yield item
+
+    def build_event_data(item, timeseries_data, metric_descriptor_data, opt_dynatrace_tenant, metric_selector):
+        event_data = {
+            **item,
+            **{'metric_name': timeseries_data['metricId'], 'value': item['value'],
+               'dynatraceTenant': opt_dynatrace_tenant, 'metricSelector': metric_selector,
+               'resolution': timeseries_data['resolution']},
+            **({'unit': metric_descriptor_data['unit']} if 'unit' in metric_descriptor_data else {})
+        }
+        return event_data
 
     def get_account_fields(self):
         account_fields= []

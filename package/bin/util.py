@@ -1,18 +1,10 @@
-import sys
 import os
-import json
-import time
 import datetime
-import time
-import requests
-import traceback
-import logging
-import logging.handlers
 import urllib3
-from typing import Union
 from pathlib import Path
 import shutil
 import filecmp
+import math
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -41,7 +33,7 @@ dynatrace_environment_active_gate_v2 = 'https://{your-domain}/e/{your-environmen
 
 v2_endpoints = {'metrics': '/api/v2/metrics',
                 'metrics_query': '/api/v2/metrics/query',
-                'metrics_descriptors': '/api/v2/metrics/{id}',
+                'metric_descriptors': '/api/v2/metrics/{id}',
                 'metrics_timeseries': '/api/v2/metrics/query/timeseries',
                 'metrics_timeseries_descriptors': '/api/v2/metrics/query/timeseries/descriptors',
                 'metrics_timeseries_aggregates': '/api/v2/metrics/query/timeseries/aggregate',
@@ -80,7 +72,7 @@ v2_params = {'metrics':
 # These selectors are used to parse the response from the Dynatrace API.
 # AKA The top level key in the map returned by the API.
 v2_selectors = {'metrics': 'metrics',
-                'metrics_descriptors': 'metricId',
+                'metric_descriptors': 'metricId',
                 'entities': 'entities',
                 'entity': 'entities',
                 'problems': 'problems',
@@ -155,9 +147,15 @@ def get_dynatrace_environment_active_gate_uri(domain, environment_id):
     return dynatrace_environment_active_gate_v2.format(your_domain=domain, your_environment_id=environment_id)
 
 
+def parse_url(url):
+    if not url.startswith('https://'):
+        if url.startswith('http://'):
+            return url.replace('http://', 'https://')
+        else:
+            return 'https://' + url
+    return url
+
 # Parse secrets.env file
-
-
 def parse_secrets_env():
     """Parse the secrets.env file. Only used for testing, and running the scripts locally.
 
@@ -184,43 +182,6 @@ def parse_secrets_env():
 # Get dynatrace Problems from apiv2
 # https://www.dynatrace.com/support/help/dynatrace-api/environment-api/problems/problems-get/
 
-def get_dynatrace_metrics_descriptors(tenant, api_token, metric_selector, time=None, page_size=100, verify=True):
-    """Get Dynatrace metrics descriptors from the API v2.
-
-    Args:
-        tenant (str): Dynatrace
-        api_token (str): Dynatrace API token
-        metric_selector (str): Metric selector.
-        time (str): Time range for the problems. Defaults to None.
-        page_size (int): Number of problems to return. Defaults to 100.
-
-    Returns:
-        json: JSON response from the API.
-    """
-    # Set the headers
-    headers = {
-        'Authorization': 'Api-Token {}'.format(api_token),
-        'version': 'Splunk_TA_Dynatrace'
-    }
-    # Set the parameters
-    if time is None:
-        parameters = {
-            'metricSelector': metric_selector,
-            'pageSize': page_size
-        }
-    else:
-        parameters = {
-            'metricSelector': metric_selector,
-            'from': time,
-            'pageSize': page_size
-        }
-    # Set the URL
-    url = tenant + '/api/v2/metrics/query/descriptors'
-    # Get the problems
-    response = requests.get(url, headers=headers, params=parameters, verify=verify)
-    # Return the response
-    return response.json()
-
 
 def default_time():
     written_since = (datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp()
@@ -233,10 +194,39 @@ def get_from_time(minutes: int = 60) -> int:
     from_time = (datetime.datetime.now() - datetime.timedelta(minutes=minutes)).timestamp()
 
     # Round to nearest millisecond
-    from_time = round(from_time * 1000)
+    from_time = math.floor(from_time * 1000)
 
     # Return the time
     return from_time
+
+
+def default_time_utc():
+    written_since = (datetime.datetime.utcnow() - datetime.timedelta(minutes=1)).timestamp()
+    last_hour = {'written_since': written_since}
+    return last_hour
+
+
+def get_from_time_utc(minutes: int = 60) -> int:
+    """Calculate unix stamp n minutes ago in UTC. Return unix epoch time in milliseconds with no decimals"""
+    from_time = (datetime.datetime.utcnow() - datetime.timedelta(minutes=minutes)).timestamp()
+
+    # Round to nearest millisecond
+    from_time = math.floor(from_time * 1000)
+
+    # Return the time
+    return from_time
+
+
+
+def create_session(tenant, api_token, verify=True):
+    session = requests.Session()
+    session.headers.update({
+        'Authorization': f'Api-Token {api_token}',
+        'version': 'Splunk_TA_Dynatrace'
+    })
+    session.verify = verify
+    session.base_url = tenant
+    return session
 
 
 def prepare_dynatrace_request(endpoint_name, tenant, api_token, params={}, time=None, page_size=None,
@@ -261,7 +251,7 @@ def prepare_dynatrace_request(endpoint_name, tenant, api_token, params={}, time=
         url = url.format(id=params['executionId'])
         params.pop('executionId')
 
-    elif 'metrics_descriptors' in endpoint_name:
+    elif 'metric_descriptors' in endpoint_name:
         url = url.format(id=params['metricSelector'])
         params.pop('metricSelector')
 
@@ -298,65 +288,63 @@ def remove_sensitive_info_recursive(data, keys_to_remove):
     return data
 
 
-def get_dynatrace_data(requests_info, verify=True, opt_helper=None):
-    combined_results = []
-    resolution = None
-
+def get_dynatrace_data(session, requests_info, opt_helper=None):
     for url, headers, params, selector in requests_info:
-        for response in _get_dynatrace_data(url, headers, params, verify, opt_helper):
-            # In case of an error, _get_dynatrace_data can yield None
-            if response is None:
-                opt_helper.log_error(f"Error: Failed to get data from {url}")
-                continue  # Skip this iteration and proceed with the next one, or you can return early if needed
-
-            # Check if the response has an entityId, if so, return early, this is for entities endpoint
-            if 'entityId' in response and isinstance(response, dict):
-                return response
-            # Check if monitorId is a top level key, return immediately if so this is for synthetic endpoint
-            elif 'monitorId' in response and isinstance(response, dict):
-                return response
-            # This is for metrics endpoint
-            elif 'result' in selector:
-                resolution = response['resolution']
-
-            # This next line grabs a specific key from the response, if it doesn't exist, it returns the response
-            parsed_response = response.get(selector, response)
-
-            # Add resolution to parsed response if it exists: this is metric specific code
-            # parsed response is a list and resolution is a string
-            if resolution:
-                parsed_response[0]['resolution'] = resolution
-
-            # Check if the parsed response is a list, if so, return early
-            if isinstance(parsed_response, list):
+        for response in _get_dynatrace_data(session, url, headers, params, opt_helper):
+            parsed_response = parse_dynatrace_response(response, selector)
+            if parsed_response:
                 return parsed_response
-            for item in parsed_response:
-                combined_results.append(item)
-
-    return combined_results
+    return []
 
 
-def _get_dynatrace_data(url, headers, params, verify, opt_helper):
+def parse_dynatrace_response(response, selector):
+    resolution = None
+    unit = None
+    # Check if the response has an entityId, if so, return early, this is for entities endpoint
+    if 'entityId' in response and isinstance(response, dict):
+        return response
+    # Check if monitorId is a top level key, return immediately if so this is for synthetic endpoint
+    elif 'monitorId' in response and isinstance(response, dict):
+        return response
+
+    # This next line grabs a specific key from the response, if it doesn't exist, it returns the response
+    parsed_response = response.get(selector, response)
+
+    # Add resolution to parsed response if it exists: this is metric specific code
+    # parsed response is a list and resolution is a string
+    if 'result' in selector and isinstance(parsed_response, list) and parsed_response:
+        parsed_response[0]['resolution'] = response.get('resolution')
+
+    # Check if the parsed response is a list, if so, return early
+    if isinstance(parsed_response, list):
+        return parsed_response
+
+    return None
+
+
+def _get_dynatrace_data(session, url, headers, params, opt_helper):
     while True:
         try:
-            response = requests.get(url, headers=headers, params=params, verify=verify)
+            response = session.get(url, headers=headers, params=params)
+
             if opt_helper:
                 opt_helper.log_debug(f'Response: {response.text}')
             response.raise_for_status()
-            parsed_response = response.json()
+            response_json = response.json()
             if opt_helper:
-                opt_helper.log_debug(f'Parsed response: {parsed_response}')
-            yield parsed_response
+                opt_helper.log_debug(f'Parsed response: {response_json}')
+            yield response_json
 
-            if 'nextPageKey' not in parsed_response or parsed_response['nextPageKey'] is None:
+            if 'nextPageKey' not in response_json or response_json['nextPageKey'] is None:
                 break
-            params = {'nextPageKey': parsed_response['nextPageKey']}
+            params = {'nextPageKey': response_json['nextPageKey']}
 
         except requests.exceptions.HTTPError as err:
             if opt_helper:
                 opt_helper.log_error(f'Error: {err}')
             yield None
             break
+
 
 
 def get_metric_descriptors(tenant, api_token, verify=True):
@@ -431,75 +419,6 @@ def query_timeseries_data(metric_id, tenant, api_token, start_time, end_time, re
 # secrets = parse_secrets_env()
 # dynatrace_tenant = secrets['dynatrace_tenant']
 # dynatrace_api_token = secrets['dynatrace_api_token']
-
-def parse_metric_selector(metric_selectors):
-    """Parse a list of metric selectors into a string for the API call.
-
-    Args:
-        metric_selectors (list): A list of metric selectors.
-
-    Returns:
-        str: A string of metric selectors.
-    """
-    metric_selector = ''
-    for selector in metric_selectors:
-        metric_selector += selector + '\n'
-
-    return metric_selector[:-1]
-
-
-def parse_metric_selectors(file_path):
-    # Parses the metric selectors from the given file path, and returns them as a list of strings.
-    parsed_metric_selectors = []
-    current_line = ""
-
-    with open(file_path, 'r') as f:
-        for line in f:
-            stripped_line = line.strip()
-            if not stripped_line:
-                continue  # Ignore empty lines
-
-            # If the line starts with a non-whitespace character, it's a new metric selector
-            if line[0] != ' ' and line[0] != '\t':
-                if current_line:
-                    parsed_metric_selectors.append(current_line)
-                current_line = stripped_line
-            else:
-                # If the line starts with a whitespace character, it's a continuation of the previous line
-                current_line += " " + stripped_line
-
-    if current_line:  # Add the last metric selector
-        parsed_metric_selectors.append(current_line)
-
-    return parsed_metric_selectors
-
-
-def parse_metric_selectors_text_area(textarea_input):
-    # Parses the metric selectors from the given textarea input, and returns them as a list of strings.
-    parsed_metric_selectors = []
-    current_line = ""
-
-    # Split textarea input into lines
-    lines = textarea_input.splitlines()
-
-    for line in lines:
-        stripped_line = line.strip()
-        if not stripped_line:
-            continue  # Ignore empty lines
-
-        # If the line starts with a non-whitespace character, it's a new metric selector
-        if line[0] != ' ' and line[0] != '\t':
-            if current_line:
-                parsed_metric_selectors.append(current_line)
-            current_line = stripped_line
-        else:
-            # If the line starts with a whitespace character, it's a continuation of the previous line
-            current_line += stripped_line
-
-    if current_line:  # Add the last metric selector
-        parsed_metric_selectors.append(current_line)
-
-    return parsed_metric_selectors
 
 
 def get_ssl_certificate_verification(helper):
