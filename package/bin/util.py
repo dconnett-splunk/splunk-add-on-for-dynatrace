@@ -1,10 +1,16 @@
 import os
-import datetime
+from datetime import datetime, timedelta
+from typing import Tuple, Optional
+
 import urllib3
 from pathlib import Path
 import shutil
 import filecmp
 import math
+from dynatrace_types import *
+import requests
+from enum import Enum
+from dataclasses import dataclass
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -31,27 +37,130 @@ dynatrace_managed_uri_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2
 dynatrace_saas_uri_v2 = 'https://{your-enviroment-id}.live.dynatrace.com/api/v2'
 dynatrace_environment_active_gate_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2'
 
-v2_endpoints = {'metrics': '/api/v2/metrics',
-                'metrics_query': '/api/v2/metrics/query',
-                'metric_descriptors': '/api/v2/metrics/{id}',
-                'metrics_timeseries': '/api/v2/metrics/query/timeseries',
-                'metrics_timeseries_descriptors': '/api/v2/metrics/query/timeseries/descriptors',
-                'metrics_timeseries_aggregates': '/api/v2/metrics/query/timeseries/aggregate',
-                'entities': '/api/v2/entities',
-                'entity': '/api/v2/entities/{id}',
-                'problems': '/api/v2/problems',
-                'events': '/api/v2/events',
-                'synthetic_locations': '/api/v2/synthetic/locations',
-                'synthetic_tests_on_demand': '/api/v2/synthetic/executions',
-                'synthetic_test_on_demand': '/api/v2/synthetic/executions/{id}/fullReport',
-                'synthetic_monitors_http': '/api/v1/synthetic/monitors',
-                'synthetic_monitor_http': '/api/v1/synthetic/monitors/{id}',
-                'synthetic_monitors_http_v2': '/api/v2/synthetic/execution',
+@dataclass
+class EndpointInfo:
+    url: URL
+    selector: ResponseSelector
+    params: Optional[Params]
+    url_param_map: Optional[str]
 
-                # TODO Change SUCCESS to Parameter for status, need to get both FAILED and SUCCESS
-                'synthetic_monitor_http_v2': '/api/v2/synthetic/execution/{id}/SUCCESS',
-                'synthetic_tests_results': '/api/v2/synthetic/tests/results'}
 
+class V2Endpoints(Enum):
+    METRICS = \
+        EndpointInfo(
+            URL('/api/v2/metrics'),
+            ResponseSelector('metrics'),
+            Params({'nextPageKey': 'nextPageKey',
+                    'metricSelector': 'metricSelector',
+                    'text': 'text',
+                    'fields': ['fields'],
+                    'writtenSince': 'writtenSince',
+                    'metadataSelector': 'metadataSelector'}),
+            None)
+    METRICS_QUERY = \
+        EndpointInfo(
+            URL('/api/v2/metrics/query'),
+            ResponseSelector('result'),
+            None,
+            None)
+    METRIC_DESCRIPTORS = \
+        EndpointInfo(
+            URL('/api/v2/metrics/{id}'),
+            ResponseSelector('metricId'),
+            None,
+            'metricSelector')
+    ENTITIES = \
+        EndpointInfo(
+            URL('/api/v2/entities'),
+            ResponseSelector('entities'),
+            Params({'entitySelector': 'type("HOST", "APPLICATION", "SERVICE", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE")'}),
+            None)
+    ENTITY = \
+        EndpointInfo(
+            URL('/api/v2/entities/{id}'),
+            ResponseSelector("entities"),
+            None,
+            'entity_id')
+    PROBLEMS = \
+        EndpointInfo(
+            URL('/api/v2/problems'),
+            ResponseSelector('problems'),
+            None,
+            None)
+    EVENTS = \
+        EndpointInfo(
+            URL('/api/v2/events'),
+            ResponseSelector('events'),
+            None,
+            None)
+    SYNTHETIC_LOCATIONS = \
+        EndpointInfo(
+            URL('/api/v2/synthetic/locations'),
+            ResponseSelector('locations'),
+            None,
+            None)
+    SYNTHETIC_TESTS_ON_DEMAND = \
+        EndpointInfo(
+            URL('/api/v2/synthetic/executions'),
+            ResponseSelector('executions'),
+            None,
+            None)
+    SYNTHETIC_TEST_ON_DEMAND = \
+        EndpointInfo(
+            URL('/api/v2/synthetic/executions/{id}/fullReport'),
+            ResponseSelector('entityId'),
+            None,
+            'executionId')
+    SYNTHETIC_MONITORS_HTTP = \
+        EndpointInfo(
+            URL('/api/v1/synthetic/monitors'),
+            ResponseSelector('monitors'),
+            None,
+            None)
+    SYNTHETIC_MONITOR_HTTP = \
+        EndpointInfo(
+            URL('/api/v1/synthetic/monitors/{id}'),
+            ResponseSelector('entityId'),
+            None,
+            'entityId')
+    SYNTHETIC_MONITORS_HTTP_V2 = \
+        EndpointInfo(
+            URL('/api/v2/synthetic/execution'),
+            ResponseSelector('executions'),
+            None,
+            None)
+    SYNTHETIC_MONITOR_HTTP_V2 = \
+        EndpointInfo(
+            URL('/api/v2/synthetic/execution/{id}/SUCCESS'),
+            ResponseSelector('monitorId'),
+            None,
+            'monitorId')
+    SYNTHETIC_TESTS_RESULTS = \
+        EndpointInfo(
+            URL('/api/v2/synthetic/tests/results'),
+            ResponseSelector('results'),
+            None,
+            None)
+
+    @property
+    def url(self):
+        return self.value.url if isinstance(self.value, EndpointInfo) else self.value
+
+    @property
+    def selector(self):
+        return self.value.selector if isinstance(self.value, EndpointInfo) else None
+
+    @property
+    def params(self):
+        return self.value.params if isinstance(self.value, EndpointInfo) else None
+
+    @property
+    def url_param_map(self):
+        return self.value.url_param_map if isinstance(self.value, EndpointInfo) else None
+
+
+# These selectors are used to parse the response from the Dynatrace API.
+# AKA The top level key in the map returned by the API.
 v2_params = {'metrics':
                  {'nextPageKey': 'nextPageKey',
                   'metricSelector': 'metricSelector',
@@ -71,24 +180,21 @@ v2_params = {'metrics':
 
 # These selectors are used to parse the response from the Dynatrace API.
 # AKA The top level key in the map returned by the API.
-v2_selectors = {'metrics': 'metrics',
-                'metric_descriptors': 'metricId',
-                'entities': 'entities',
-                'entity': 'entities',
-                'problems': 'problems',
-                'events': 'events',
-                'synthetic_locations': 'locations',
-                'synthetics_on_demand': 'executions',
-                'synthetic_monitors_http': 'monitors',
-                'synthetic_monitor_http': 'entityId',
-                'synthetic_monitor_http_v2': 'monitorId',
-                'synthetic_tests_on_demand': 'executions',
-                'synthetic_test_on_demand': 'entityId',
-                'synthetic_nodes': 'monitors',
-                'metrics_query': 'result'}
-
-
-# Get current working directory
+# v2_selectors = {'metrics': 'metrics',
+#                 'metric_descriptors': 'metricId',
+#                 'entities': 'entities',
+#                 'entity': 'entities',
+#                 'problems': 'problems',
+#                 'events': 'events',
+#                 'synthetic_locations': 'locations',
+#                 'synthetics_on_demand': 'executions',
+#                 'synthetic_monitors_http': 'monitors',
+#                 'synthetic_monitor_http': 'entityId',
+#                 'synthetic_monitor_http_v2': 'monitorId',
+#                 'synthetic_tests_on_demand': 'executions',
+#                 'synthetic_test_on_demand': 'entityId',
+#                 'synthetic_nodes': 'monitors',
+#                 'metrics_query': 'result'}
 
 
 def get_current_working_directory():
@@ -98,9 +204,6 @@ def get_current_working_directory():
         str: Current working directory.
     """
     return os.getcwd()
-
-
-# Create managed uri given domain and environment id
 
 
 def get_dynatrace_managed_uri(domain, environment_id):
@@ -116,9 +219,6 @@ def get_dynatrace_managed_uri(domain, environment_id):
     return dynatrace_managed_uri_v2.format(your_domain=domain, your_environment_id=environment_id)
 
 
-# Create SaaS uri given environment id
-
-
 def get_dynatrace_saas_uri(environment_id):
     """Create a SaaS URI given the environment ID.
 
@@ -129,9 +229,6 @@ def get_dynatrace_saas_uri(environment_id):
         str: SaaS URI.
     """
     return dynatrace_saas_uri_v2.format(your_environment_id=environment_id)
-
-
-# Create environment active gate uri given domain and environment id
 
 
 def get_dynatrace_environment_active_gate_uri(domain, environment_id):
@@ -183,42 +280,51 @@ def parse_secrets_env():
 # https://www.dynatrace.com/support/help/dynatrace-api/environment-api/problems/problems-get/
 
 
-def default_time():
-    written_since = (datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp()
-    last_hour = {'written_since': f'{written_since}'}
+def default_time() -> WrittenSinceParam:
+    written_since = (datetime.now() - timedelta(minutes=1)).timestamp()
+    last_hour: WrittenSinceParam = WrittenSinceParam({'written_since': f'{written_since}'})
     return last_hour
 
 
-def get_from_time(minutes: int = 60) -> int:
+def get_from_time(minutes: CollectionInterval = 60) -> int:
     """Calculate unix stamp n minutes ago. Return unix epoch time in milliseconds with no decimals"""
-    from_time = (datetime.datetime.now() - datetime.timedelta(minutes=minutes)).timestamp()
+    from_time_float = (datetime.now() - timedelta(minutes=minutes)).timestamp()
 
     # Round to nearest millisecond
-    from_time = math.floor(from_time * 1000)
+    from_time: int = math.floor(from_time_float * 1000)
 
     # Return the time
     return from_time
 
 
-def default_time_utc():
-    written_since = (datetime.datetime.utcnow() - datetime.timedelta(minutes=1)).timestamp()
-    last_hour = {'written_since': written_since}
-    return last_hour
+def calculate_utc_start_timestamp(minutes: Optional[int] = 60) -> StartTime:
+    """Calculate unix timestamp n minutes ago in UTC"""
+    now: datetime = datetime.utcnow()
+    time_range: timedelta = timedelta(minutes=minutes)
+    start_time: datetime = now - time_range
+    timestamp: StartTime = StartTime(math.floor(start_time.timestamp() * 1000))
+
+    return timestamp
 
 
-def get_from_time_utc(minutes: int = 60) -> int:
+def get_from_time_utc(minutes: Optional[int] = 60) -> int:
     """Calculate unix stamp n minutes ago in UTC. Return unix epoch time in milliseconds with no decimals"""
-    from_time = (datetime.datetime.utcnow() - datetime.timedelta(minutes=minutes)).timestamp()
-
-    # Round to nearest millisecond
-    from_time = math.floor(from_time * 1000)
+    from_time = calculate_utc_start_timestamp(minutes)
 
     # Return the time
     return from_time
 
 
+def default_time_utc_written_since() -> WrittenSinceParam:
+    """Return the current time in UTC minus 1 hour
+    in unix epoch time in milliseconds with no decimals with the key written_since.
+    This is for certain endpoints that require a time parameter in UTC"""
+    last_hour: StartTime = calculate_utc_start_timestamp(60)
+    written_since = WrittenSinceParam({'written_since': f'{last_hour}'})
+    return written_since
 
-def create_session(tenant, api_token, verify=True):
+
+def create_session(tenant, api_token, verify=True) -> requests.Session:
     session = requests.Session()
     session.headers.update({
         'Authorization': f'Api-Token {api_token}',
@@ -229,49 +335,44 @@ def create_session(tenant, api_token, verify=True):
     return session
 
 
-def prepare_dynatrace_request(endpoint_name, tenant, api_token, params={}, time=None, page_size=None,
+def format_url_and_pop_params(endpoint: V2Endpoints, params: dict, url: str) -> Tuple[str, dict]:
+    """Format the URL and pop the URL Path parameter from the params dictionary.
+    Why are we passing Path Parameters through the Query Parameters?
+    No idea, but I feel like there was a reason..."""
+    if endpoint.url_param_map:
+        param_key = endpoint.url_param_map
+        url = url.format(id=params[param_key])
+        params.pop(param_key)
+    return url, params
+
+
+def prepare_dynatrace_request(endpoint: V2Endpoints, tenant, api_token, params, time=None, page_size=None,
                               entity_types=None):
-    endpoint_uri = v2_endpoints[endpoint_name]
-    selector = v2_selectors[endpoint_name]
-    url = tenant + endpoint_uri
+    endpoint_url = endpoint.url
+    selector = endpoint.selector
+    url = tenant + endpoint_url
 
-    # Handle entity endpoint, fix this ugly hack later
-    if endpoint_name == 'entity':
-        # Format string replace id in endpoint_uri
-        url = url.format(id=params['entity_id'])
-        # Remove entity_id from params
-        params.pop('entity_id')
+    url, params = format_url_and_pop_params(endpoint, params, url)
 
-    # Handle synthetic monitor endpoint, wildcard the suffix
-    elif 'synthetic_monitor_http' in endpoint_name:
-        url = url.format(id=params['entityId'])
-        params.pop('entityId')
-
-    elif 'synthetic_test_on_demand' in endpoint_name:
-        url = url.format(id=params['executionId'])
-        params.pop('executionId')
-
-    elif 'metric_descriptors' in endpoint_name:
-        url = url.format(id=params['metricSelector'])
-        params.pop('metricSelector')
 
     headers = {
         'Authorization': 'Api-Token {}'.format(api_token),
         'version': 'Splunk_TA_Dynatrace'
     }
 
-    # TODO Not PEP8 compliant, need to really clean this up
+    # TODO Written before Enums, might be able to use Enums here instead of strings
     prepared_params = {
         **params,
         **({'fields': 'unit,aggregationTypes'} if 'metrics' in selector else {}),
         **({'writtenSince': str(time)} if 'metrics' in selector and time else {
-            'from': str(time)} if time and endpoint_name != 'synthetic_tests_on_demand' else {}),
-        **({'schedulingFrom': str(time)} if endpoint_name == 'synthetic_tests_on_demand' and time else {}),
+            'from': str(time)} if time and endpoint != V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND else {}),
+        **({'schedulingFrom': str(time)} if endpoint == V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND and time else {}),
     }
     if page_size:
         prepared_params['pageSize'] = page_size
 
-    if endpoint_name == 'entities' and entity_types:
+    # This is a hack because Dynatrace doesn't allow you to query for multiple entity types
+    if endpoint == V2Endpoints.ENTITIES and entity_types:
         return [(url, headers, {**prepared_params, 'entitySelector': f'type("{entity_type}")'}, selector) for
                 entity_type in
                 entity_types]
@@ -297,7 +398,7 @@ def get_dynatrace_data(session, requests_info, opt_helper=None):
     return []
 
 
-def parse_dynatrace_response(response, selector):
+def parse_dynatrace_response(response, selector: ResponseSelector):
     resolution = None
     unit = None
     # Check if the response has an entityId, if so, return early, this is for entities endpoint
@@ -330,7 +431,7 @@ def _get_dynatrace_data(session, url, headers, params, opt_helper):
             if opt_helper:
                 opt_helper.log_debug(f'Response: {response.text}')
             response.raise_for_status()
-            response_json = response.json()
+            response_json: json = response.json()
             if opt_helper:
                 opt_helper.log_debug(f'Parsed response: {response_json}')
             yield response_json
@@ -344,35 +445,6 @@ def _get_dynatrace_data(session, url, headers, params, opt_helper):
                 opt_helper.log_error(f'Error: {err}')
             yield None
             break
-
-
-
-def get_metric_descriptors(tenant, api_token, verify=True):
-    """Get all metric descriptors from the Dynatrace API v2.
-
-    Args:
-        tenant (str): Dynatrace tenant URL.
-        api_token (str): Dynatrace API token.
-        verify (bool): Verify SSL certificate. Defaults to True.
-
-    Returns:
-        dict: JSON response from the API containing all metric descriptors.
-    """
-    endpoint = v2_endpoints['metrics_descriptors']
-    url = tenant + endpoint
-    headers = {
-        'Authorization': 'Api-Token {}'.format(api_token),
-        'version': 'Splunk_TA_Dynatrace'
-    }
-    response = requests.get(url, headers=headers, verify=verify)
-    if response.status_code < 400:
-        return response.json()
-    else:
-        print('Error retrieving metric descriptors:', response.content)
-        return None
-
-
-import requests
 
 
 def query_timeseries_data(metric_id, tenant, api_token, start_time, end_time, resolution='1min', verify=True):
@@ -452,10 +524,3 @@ def get_ssl_certificate_verification(helper):
 
     return opt_ssl_certificate_verification
 
-# Usage example:
-# file_path = 'metric_selectors.txt'
-# parsed_metric_selectors = parse_metric_selectors(file_path)
-
-# Print parsed metric selectors:
-# for metric_selector in parsed_metric_selectors:
-#     print(metric_selector)
