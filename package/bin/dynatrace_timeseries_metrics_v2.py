@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-import datetime
+from datetime import datetime, timedelta
 import json
 from pathlib import Path
 
@@ -118,17 +118,16 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         opt_dynatrace_tenant = util.parse_url(dynatrace_tenant_input)
 
         opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
-        opt_dynatrace_entity_endpoints = helper.get_arg('entity_endpoints')
         dynatrace_metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
 
-        opt_ssl_certificate_verification = False
+        opt_ssl_certificate_verification = True
 
         helper.log_debug(f'verify_ssl: {opt_ssl_certificate_verification}')
         helper.log_debug(f'dynatrace_tenant: {opt_dynatrace_tenant}')
         helper.log_debug(f'dynatrace_collection_interval_minutes: {opt_dynatrace_collection_interval_minutes}')
         helper.log_debug(f'dynatrace_metric_selectors: {dynatrace_metric_selectors}')
 
-        PAGE_SIZE = 100
+        page_size = 100
 
         session = requests.Session()
         session.verify = opt_ssl_certificate_verification
@@ -140,7 +139,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
             start_time = f"{(datetime.datetime.now() - datetime.timedelta(minutes=opt_dynatrace_collection_interval_minutes)).isoformat()}Z"
 
             params = {'metricSelector': metric_selector, 'startTimestamp': start_time, 'endTimestamp': end_time,
-                      'pageSize': PAGE_SIZE}
+                      'pageSize': page_size}
 
             dynatrace_data = metrics_util.prepare_and_get_data('metrics_query', opt_dynatrace_tenant, opt_dynatrace_api_token,
                                                   params, session, helper)
@@ -164,46 +163,6 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
 
         session.close()
 
-    def parse_url(url):
-        if not url.startswith('https://'):
-            if url.startswith('http://'):
-                return url.replace('http://', 'https://')
-            else:
-                return 'https://' + url
-        return url
-
-    def prepare_and_get_data(api_type, tenant, token, params, session, helper):
-        request_info = util.prepare_dynatrace_request(api_type, tenant, token, params=params)
-        helper.log_debug(f"Request Info: {request_info}")
-        data = util.get_dynatrace_data(session, request_info, opt_helper=helper)
-
-        if data is None:
-            helper.log_error(f"Failed to fetch data for request: {request_info}")
-            # Handle the error as needed: retry, return early, raise exception, etc.
-
-        return data
-
-    def process_timeseries_data(timeseries_data):
-        for entry in timeseries_data['data']:
-            dimensions = entry['dimensions']
-            timestamps = entry['timestamps']
-            values = entry['values']
-            dimension_map = entry['dimensionMap']
-
-            for timestamp, value in zip(timestamps, values):
-                item = {**dimension_map, 'timestamp': timestamp, 'value': value,
-                        **dict(zip(dimension_map.keys(), dimensions))}
-                yield item
-
-    def build_event_data(item, timeseries_data, metric_descriptor_data, opt_dynatrace_tenant, metric_selector):
-        event_data = {
-            **item,
-            **{'metric_name': timeseries_data['metricId'], 'value': item['value'],
-               'dynatraceTenant': opt_dynatrace_tenant, 'metricSelector': metric_selector,
-               'resolution': timeseries_data['resolution']},
-            **({'unit': metric_descriptor_data['unit']} if 'unit' in metric_descriptor_data else {})
-        }
-        return event_data
 
     def get_account_fields(self):
         account_fields= []

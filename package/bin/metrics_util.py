@@ -8,7 +8,7 @@ import util
 import requests
 import itertools
 import re
-
+from dynatrace_types import *
 
 def prepare_and_get_data(api_type, tenant, token, params, session, helper):
     request_info = util.prepare_dynatrace_request(api_type, tenant, token, params=params)
@@ -33,6 +33,7 @@ def process_timeseries_data(timeseries_data):
             item = {**dimension_map, 'timestamp': timestamp, 'value': value,
                     **dict(zip(dimension_map.keys(), dimensions))}
             yield item
+
 
 def build_event_data(item, timeseries_data, metric_descriptor_data, opt_dynatrace_tenant, metric_selector):
     event_data = {
@@ -83,20 +84,22 @@ def get_dynatrace_metrics_descriptors(tenant, api_token, metric_selector, time=N
     return response.json()
 
 
-def parse_metric_selector(metric_selectors):
+def parse_metric_selector(metric_selectors: list[str]) -> MetricSelector:
     """Parse a list of metric selectors into a string for the API call.
 
     Args:
         metric_selectors (list): A list of metric selectors.
 
     Returns:
-        str: A string of metric selectors.
+        MetricSelector: A string of metric selectors.
     """
-    metric_selector = ''
+    metric_selector_str = ''
     for selector in metric_selectors:
-        metric_selector += selector + '\n'
+        metric_selector_str += selector + '\n'
 
-    return metric_selector[:-1]
+    metric_selector = MetricSelector(metric_selector_str[:-1])
+
+    return metric_selector
 
 
 def parse_metric_selectors_from_file(file_path: Path):
@@ -106,18 +109,21 @@ def parse_metric_selectors_from_file(file_path: Path):
     return parse_metric_selectors_text_area(file_content)
 
 
-def parse_metric_selectors_text_area(textarea_input: str):
+def parse_metric_selectors_text_area(textarea_input: str) -> list[MetricSelector]:
     """Scan line by line, if there is leading whitespace or tabs, it's a continuation of the previous line.
     Strip them and append them to the previous selector.
     @param textarea_input: The text area input
     @return: A list of metric selectors
-
     """
 
     # Combine the lines that are continuations of the previous line
     joined_sub_expressions = re.sub(re.compile(r'\n\s+:'), ':', textarea_input)
 
     # Split the lines into a list
-    parsed_metric_selectors = joined_sub_expressions.splitlines()
+    parsed_metric_selectors_str = joined_sub_expressions.splitlines()
+
+    # Convert each string in the list to a MetricSelector
+    parsed_metric_selectors = [MetricSelector(selector) for selector in parsed_metric_selectors_str]
 
     return parsed_metric_selectors
+
