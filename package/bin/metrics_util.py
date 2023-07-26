@@ -28,7 +28,6 @@ def process_timeseries_data(timeseries_data):
         timestamps = entry['timestamps']
         values = entry['values']
         dimension_map = entry['dimensionMap']
-
         for timestamp, value in zip(timestamps, values):
             item = {**dimension_map, 'timestamp': timestamp, 'value': value,
                     **dict(zip(dimension_map.keys(), dimensions))}
