@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from typing import Tuple, Optional
-
+import pickle
 import urllib3
 from pathlib import Path
 import shutil
@@ -11,6 +11,8 @@ from dynatrace_types import *
 import requests
 from enum import Enum
 from dataclasses import dataclass
+from urllib.parse import quote_plus
+from requests import Response, Request, PreparedRequest, Session
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -73,7 +75,7 @@ class V2Endpoints(Enum):
         EndpointInfo(
             URL('/api/v2/entities'),
             ResponseSelector('entities'),
-            Params({'entitySelector': 'type("HOST", "APPLICATION", "SERVICE", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE")'}),
+            Params({'entitySelector': 'type("HOST", "APPLICATION", "SERVICE", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", SYNTHETIC_TEST", "SYNTHETIC_TEST_STEP")'}),
             None)
     ENTITY = \
         EndpointInfo(
@@ -326,11 +328,10 @@ def default_time_utc_written_since() -> WrittenSinceParam:
 
 def create_session(tenant, api_token, verify=True) -> requests.Session:
     session = requests.Session()
-    session.headers.update({
-        'Authorization': f'Api-Token {api_token}',
-        'version': 'Splunk_TA_Dynatrace'
-    })
     session.verify = verify
+    session.headers = {
+        'Authorization': f'Api-Token {api_token}'
+    }
     session.base_url = tenant
     return session
 
@@ -346,8 +347,11 @@ def format_url_and_pop_params(endpoint: V2Endpoints, params: dict, url: str) -> 
     return url, params
 
 
-def prepare_dynatrace_request(endpoint: V2Endpoints, tenant, api_token, params, time=None, page_size=None,
+def prepare_dynatrace_request(endpoint: V2Endpoints, tenant, api_token, params=None, time=None, page_size=None,
                               entity_types=None):
+    if params is None:
+        params = {}
+
     endpoint_url = endpoint.url
     selector = endpoint.selector
     url = tenant + endpoint_url
@@ -391,14 +395,15 @@ def remove_sensitive_info_recursive(data, keys_to_remove):
 
 def get_dynatrace_data(session, requests_info, opt_helper=None):
     for url, headers, params, selector in requests_info:
-        for response in _get_dynatrace_data(session, url, headers, params, opt_helper):
-            parsed_response = parse_dynatrace_response(response, selector)
+
+        for response_json in _get_dynatrace_data(session, url, headers, params, opt_helper):
+            parsed_response = parse_dynatrace_response(response_json, selector)
             if parsed_response:
                 return parsed_response
     return []
 
 
-def parse_dynatrace_response(response, selector: ResponseSelector):
+def parse_dynatrace_response(response: json, selector: ResponseSelector):
     resolution = None
     unit = None
     # Check if the response has an entityId, if so, return early, this is for entities endpoint
@@ -423,10 +428,13 @@ def parse_dynatrace_response(response, selector: ResponseSelector):
     return None
 
 
-def _get_dynatrace_data(session, url, headers, params, opt_helper):
+def _get_dynatrace_data(session, url, headers, params, opt_helper) -> json:
     while True:
         try:
-            response = session.get(url, headers=headers, params=params)
+            request: Request = requests.Request('GET', url, headers=headers, params=params)
+            prepared_request: PreparedRequest = session.prepare_request(request)
+            settings: dict = session.merge_environment_settings(prepared_request.url, {}, None, None, None)
+            response: Response = session.send(prepared_request, **settings)
 
             if opt_helper:
                 opt_helper.log_debug(f'Response: {response.text}')
