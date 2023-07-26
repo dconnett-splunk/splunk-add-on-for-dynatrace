@@ -13,6 +13,7 @@ from enum import Enum
 from dataclasses import dataclass
 from urllib.parse import quote_plus
 from requests import Response, Request, PreparedRequest, Session
+import re
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -83,6 +84,12 @@ class V2Endpoints(Enum):
             ResponseSelector("entities"),
             None,
             'entity_id')
+    PROBLEM = \
+        EndpointInfo(
+            URL('/api/v2/problems/{id}'),
+            ResponseSelector('problem'),
+            None,
+            'problemId') # Not sure about this one
     PROBLEMS = \
         EndpointInfo(
             URL('/api/v2/problems'),
@@ -246,6 +253,17 @@ def get_dynatrace_environment_active_gate_uri(domain, environment_id):
     return dynatrace_environment_active_gate_v2.format(your_domain=domain, your_environment_id=environment_id)
 
 
+def get_endpoint_info(url: str) -> Optional[EndpointInfo]:
+    """Match a URL to an EndpointInfo object."""
+    for endpoint in V2Endpoints:
+        endpoint_url_regex = re.escape(endpoint.value.url).replace(r"\{id\}", r"[^/]+")
+        # Ensure endpoint.url is at the end of url
+        endpoint_url_regex = r".*{}$".format(endpoint_url_regex)
+        if re.search(endpoint_url_regex, url):
+            return Optional[endpoint]
+    return None
+
+
 def parse_url(url):
     if not url.startswith('https://'):
         if url.startswith('http://'):
@@ -355,9 +373,7 @@ def prepare_dynatrace_request(endpoint: V2Endpoints, tenant, api_token, params=N
     endpoint_url = endpoint.url
     selector = endpoint.selector
     url = tenant + endpoint_url
-
     url, params = format_url_and_pop_params(endpoint, params, url)
-
 
     headers = {
         'Authorization': 'Api-Token {}'.format(api_token),
@@ -377,11 +393,11 @@ def prepare_dynatrace_request(endpoint: V2Endpoints, tenant, api_token, params=N
 
     # This is a hack because Dynatrace doesn't allow you to query for multiple entity types
     if endpoint == V2Endpoints.ENTITIES and entity_types:
-        return [(url, headers, {**prepared_params, 'entitySelector': f'type("{entity_type}")'}, selector) for
+        return [(url, headers, {**prepared_params, 'entitySelector': f'type("{entity_type}")'}, endpoint) for
                 entity_type in
                 entity_types]
 
-    return [(url, headers, prepared_params, selector)]
+    return [(url, headers, prepared_params, endpoint)]
 
 
 def remove_sensitive_info_recursive(data, keys_to_remove):
@@ -394,38 +410,12 @@ def remove_sensitive_info_recursive(data, keys_to_remove):
 
 
 def get_dynatrace_data(session, requests_info, opt_helper=None):
-    for url, headers, params, selector in requests_info:
-
+    for url, headers, params, endpoint in requests_info:
         for response_json in _get_dynatrace_data(session, url, headers, params, opt_helper):
-            parsed_response = parse_dynatrace_response(response_json, selector)
+            parsed_response = parse_dynatrace_response(response_json, endpoint)
             if parsed_response:
                 return parsed_response
     return []
-
-
-def parse_dynatrace_response(response: json, selector: ResponseSelector):
-    resolution = None
-    unit = None
-    # Check if the response has an entityId, if so, return early, this is for entities endpoint
-    if 'entityId' in response and isinstance(response, dict):
-        return response
-    # Check if monitorId is a top level key, return immediately if so this is for synthetic endpoint
-    elif 'monitorId' in response and isinstance(response, dict):
-        return response
-
-    # This next line grabs a specific key from the response, if it doesn't exist, it returns the response
-    parsed_response = response.get(selector, response)
-
-    # Add resolution to parsed response if it exists: this is metric specific code
-    # parsed response is a list and resolution is a string
-    if 'result' in selector and isinstance(parsed_response, list) and parsed_response:
-        parsed_response[0]['resolution'] = response.get('resolution')
-
-    # Check if the parsed response is a list, if so, return early
-    if isinstance(parsed_response, list):
-        return parsed_response
-
-    return None
 
 
 def _get_dynatrace_data(session, url, headers, params, opt_helper) -> json:
@@ -453,6 +443,36 @@ def _get_dynatrace_data(session, url, headers, params, opt_helper) -> json:
                 opt_helper.log_error(f'Error: {err}')
             yield None
             break
+
+
+def parse_dynatrace_response(response: json, endpoint: V2Endpoints):
+    resolution = None
+    unit = None
+    selector = endpoint.selector
+    # Check if the response has an entityId, if so, return early, this is for entities endpoint
+    if endpoint == V2Endpoints.ENTITIES in response and isinstance(response, dict):
+        return response
+    # Check if monitorId is a top level key, return immediately if so this is for synthetic endpoint
+    elif endpoint == V2Endpoints.SYNTHETIC_MONITOR_HTTP_V2 and isinstance(response, dict):
+        return MonitorExecutionResults(**response)
+    elif endpoint == V2Endpoints.METRIC_DESCRIPTORS and isinstance(response, dict):
+        return MetricDescriptor(**response)
+
+    # This next line grabs a specific key from the response, if it doesn't exist, it returns the response
+    parsed_response = response.get(selector, response)
+
+    # Add resolution to parsed response if it exists: this is metric specific code
+    # parsed response is a list and resolution is a string
+    if endpoint == V2Endpoints.METRICS_QUERY and isinstance(parsed_response, list) and parsed_response:
+        parsed_response: MetricData = MetricData(**response)
+        return parsed_response
+
+    # Check if the parsed response is a list, if so, return early
+    if isinstance(parsed_response, list):
+        return parsed_response
+
+    return None
+
 
 
 def query_timeseries_data(metric_id, tenant, api_token, start_time, end_time, resolution='1min', verify=True):

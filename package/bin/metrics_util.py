@@ -4,11 +4,14 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Dict, Union, List
+
 import util
 import requests
 import itertools
 import re
 from dynatrace_types import *
+
 
 def prepare_and_get_data(api_type, tenant, token, params, session, helper):
     request_info = util.prepare_dynatrace_request(api_type, tenant, token, params=params)
@@ -22,26 +25,38 @@ def prepare_and_get_data(api_type, tenant, token, params, session, helper):
     return data
 
 
-def process_timeseries_data(timeseries_data):
-    for entry in timeseries_data['data']:
-        dimensions = entry['dimensions']
-        timestamps = entry['timestamps']
-        values = entry['values']
-        dimension_map = entry['dimensionMap']
-        for timestamp, value in zip(timestamps, values):
-            item = {**dimension_map, 'timestamp': timestamp, 'value': value,
-                    **dict(zip(dimension_map.keys(), dimensions))}
-            yield item
+def flatten_and_zip_timeseries(timeseries_data: MetricData):
+    series_collection: MetricSeriesCollection
+    series: MetricSeries
+    dimension_map_dict: DimensionMap
+    item: DataPoint
+    resolution: str = timeseries_data['resolution']
+
+    for series_collection in timeseries_data['result']:
+        for series in series_collection['data']:
+            timestamps_list = series['timestamps']
+            values_list = series['values']
+            dimension_map_dict = series['dimensionMap']
+
+            # Iterate over each timestamp-value pair
+            for timestamp, value in zip(timestamps_list, values_list):
+                # Create a new dictionary merging the 'dimension_map', 'timestamp', and 'value'
+                data_point = {
+                    **dimension_map_dict,
+                    'timestamp': timestamp,
+                    'value': value,
+                    'resolution': resolution
+                }
+
+                yield data_point
 
 
-def build_event_data(item, timeseries_data, metric_descriptor_data, opt_dynatrace_tenant, metric_selector):
+def build_event_data(item: DataPoint, metric_descriptor: MetricDescriptor, opt_dynatrace_tenant: Tenant):
     event_data = {
         **item,
-        **{'metric_name': timeseries_data['metricId'], 'value': item['value'],
-           'dynatraceTenant': opt_dynatrace_tenant, 'metricSelector': metric_selector,
-           'resolution': timeseries_data['resolution']},
-        **({'unit': metric_descriptor_data['unit']} if 'unit' in metric_descriptor_data else {})
-    }
+        **{'metric_name': metric_descriptor['metricId'], 'value': item['value'],
+           'dynatraceTenant': opt_dynatrace_tenant},
+        **({'unit': metric_descriptor['unit']} if 'unit' in metric_descriptor else {})}
     return event_data
 
 

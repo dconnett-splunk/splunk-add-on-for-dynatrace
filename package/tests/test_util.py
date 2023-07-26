@@ -5,7 +5,7 @@ import os
 from requests.models import Response, PreparedRequest
 import package.bin.util as util
 import unittest
-from dynatrace_types import CollectionInterval, MetricDescriptorCollection
+from dynatrace_types import CollectionInterval, MetricDescriptor, MetricId, MetricSelector, MetricDescriptorCollection, Tenant
 from package.bin.util import V2Endpoints
 import pickle
 import json
@@ -34,7 +34,7 @@ def request_info_generator():
         # Expected url after formatting
         params = {}
         expected_url = tenant + endpoint.url
-        entity_types = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE"]
+        entity_types = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST","SYNTHETIC_TEST_STEP"]
 
         if endpoint.url_param_map:
             params = {endpoint.url_param_map: "Computer1234"}
@@ -45,7 +45,6 @@ def request_info_generator():
 
 def pickle_paths():
     """Location of pickled test inputs"""
-
     # Calculate the absolute path of the directory containing the pickle files
     # This assumes that the pickle directory is in the same directory as the current script
     pickle_dir = Path(pickle_test_inputs.__path__[0])
@@ -87,7 +86,7 @@ def get_endpoint_info(url):
 
 
 def manual_pickle_review():
-    for file_name, file_type, timestamp, url, data in pickled_test_inputs():
+    for file_name, file_type, timestamp, url, data in sorted(pickled_test_inputs()):
         print(f"file_name: {file_name}")
         print(f"file_type: {file_type}")
         print(f"timestamp: {timestamp}")
@@ -165,12 +164,12 @@ class TestUtil(unittest.TestCase):
     def test_parse_dynatrace_response(self):
         file_paths = sorted(pickled_test_inputs())
         for file_name, file_type, timestamp, url, data in file_paths:
+            endpoint = get_endpoint_info(url)
             print()
             print(f"file_name: {file_name}")
             if file_type == "response":
                 response = data.json()
-                selector = get_endpoint_info(url).selector
-                result = util.parse_dynatrace_response(response, selector)
+                result = util.parse_dynatrace_response(response, endpoint)
                 print()
                 print(f"file_type: {file_type}")
                 print(f"timestamp: {timestamp}")
@@ -185,12 +184,12 @@ class TestUtil(unittest.TestCase):
 
             print()
             print(f"requests_info: {requests_info}")
-            for url, headers, params, selector in requests_info:
+            for url, headers, params, endpoint in requests_info:
                 print()
                 print(f"url: {url}")
                 print(f"headers: {headers}")
                 print(f"params: {params}")
-                print(f"selector: {selector}")
+                print(f"endpoint: {endpoint}")
 
 
             # Create a mock response
@@ -293,24 +292,60 @@ class TestMetricsUtil(unittest.TestCase):
         metrics_query_response = pickle.load(open(Path(pickle_path, prefix + "metrics_query_1687888114.pkl"), 'rb'))
 
         # Parse metrics response
-        pprint(util.parse_dynatrace_response(metrics_response, 'metrics'))
+        pprint(util.parse_dynatrace_response(metrics_response, V2Endpoints.METRICS))
 
         metric_id = pickle.load(open(Path(pickle_path, "response_https__fbk23429livedynatracecom_api_v2_metrics_builtinbillingddulogbyDescription_1687888114.pkl"), 'rb'))
-        pprint(util.parse_dynatrace_response(metric_id, 'metric_descriptors'))
+        pprint(util.parse_dynatrace_response(metric_id, V2Endpoints.METRICS_QUERY))
 
         raw_metrics = pickle.load(open(Path(pickle_path, "response_https__fbk23429livedynatracecom_api_v2_metrics_query_1687888114.pkl"), 'rb'))
 
     def test_process_timeseries_data(self):
         # TODO: Fix this test
-        for file_name, file_type, timestamp, url, data in pickled_test_inputs():
+        for file_name, file_type, timestamp, url, data in sorted(pickled_test_inputs()):
             endpoint = get_endpoint_info(url)
             if endpoint == V2Endpoints.METRICS_QUERY and file_type == "response":
                 print()
-                parsed_data = util.parse_dynatrace_response(data.json(), endpoint.selector)
+                print(f'file_name: {file_name}')
+                print(f'file_type: {file_type}')
+                print(f'timestamp: {timestamp}')
+                print(f'url: {url}')
+                parsed_data = util.parse_dynatrace_response(data.json(), endpoint)
                 print()
                 print(f'parsed_data: {parsed_data}')
-                process_timeseries_data = [item for item in dt_metrics.process_timeseries_data(parsed_data)]
-                print(process_timeseries_data)
+                process_timeseries_data = [item for item in dt_metrics.flatten_and_zip_timeseries(parsed_data)]
+                for data_point in process_timeseries_data:
+                    print(f'data_point: {data_point}')
+
+            assert True
+
+    def test_build_event_data(self):
+        metric_descriptor: MetricDescriptor
+        opt_dynatrace_tenant: Tenant
+        metric_id: MetricId
+        metric_selector: MetricSelector
+
+        for file_name, file_type, timestamp, url, data in sorted(pickled_test_inputs()):
+            endpoint = get_endpoint_info(url)
+            if endpoint == V2Endpoints.METRIC_DESCRIPTORS and file_type == "response":
+                metric_descriptor = util.parse_dynatrace_response(data.json(), endpoint)
+                print(f'metric_descriptor: {metric_descriptor}')
+                metric_id = metric_descriptor['metricId']
+                #TODO: Find metric_selector
+
+            if endpoint == V2Endpoints.METRICS_QUERY and file_type == "response":
+                print()
+                print(f'file_name: {file_name}')
+                print(f'file_type: {file_type}')
+                print(f'timestamp: {timestamp}')
+                print(f'url: {url}')
+                parsed_data = util.parse_dynatrace_response(data.json(), endpoint)
+                print()
+                print(f'parsed_data: {parsed_data}')
+                process_timeseries_data = [item for item in dt_metrics.flatten_and_zip_timeseries(parsed_data)]
+                for data_point in process_timeseries_data:
+                    print(f'data_point: {data_point}')
+                    event_data = dt_metrics.build_event_data(data_point, metric_descriptor, "opt_dynatrace_tenant")
+                    print(f'event_data: {event_data}')
 
             assert True
 

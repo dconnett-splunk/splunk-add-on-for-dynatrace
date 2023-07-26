@@ -153,7 +153,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                     helper.log_debug(f"Processing Metric: {timeseries_data['metricId']}")
                     helper.log_debug(f"Writing data to index: {index}")
 
-                    for item in metrics_util.process_timeseries_data(timeseries_data):
+                    for item in metrics_util.flatten_and_zip_timeseries(timeseries_data):
                         event_data = metrics_util.build_event_data(item, timeseries_data, metric_descriptor_data,
                                                       opt_dynatrace_tenant, metric_selector)
                         serialized = json.dumps(event_data)
