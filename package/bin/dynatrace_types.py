@@ -4,6 +4,25 @@ import typing
 from typing import TypedDict, NewType, Dict, List, Any, Union, Set, Type
 from datetime import date
 
+
+# class MetricSelector:
+#     """Selects metrics for the query by their keys. You can select up to 10 metrics for one query."""
+#
+#     def __init__(self, metric_selector: str):
+#         # Split on all colons
+#         split_selector = metric_selector.split(':')
+#
+#         # Join the first two parts to get the metric key, and the rest to get the transformations
+#         self.metricKey = ':'.join(split_selector[:2])
+#         self.transformations = ':' + ':'.join(split_selector[2:]) if len(split_selector) > 2 else None
+#
+#     def escape_metric_key(self):
+#         escaped_metric_key = self.metricKey.replace('~', '~~').replace('"', '~"')
+#         if self.transformations:
+#             return f'"{escaped_metric_key}{self.transformations}"'
+#         else:
+#             return f'"{escaped_metric_key}"'
+
 MetricSelector = NewType('MetricSelector', str)
 APIToken = NewType('APIToken', str)
 Tenant = NewType('Tenant', str)
@@ -20,7 +39,7 @@ DimensionType = NewType('DimensionType', str)
 MetricId = NewType('MetricId', str)
 LocationId = NewType('locationId', str)
 ExecutionId = NewType('executionId', str)
-
+PathParam = NewType('PathParam', str)
 
 class Rollup(TypedDict):
     parameter: float

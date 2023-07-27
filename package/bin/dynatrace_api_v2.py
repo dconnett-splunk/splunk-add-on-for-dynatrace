@@ -110,7 +110,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
 
         # Set a default list of entity types for the 'entities' endpoint
         # TODO - Need to make this configurable
-        default_entity_types = ['HOST', 'PROCESS_GROUP_INSTANCE', 'PROCESS_GROUP', 'APPLICATION', 'SERVICE']
+        default_entity_types = {'entity_types': ['HOST', 'PROCESS_GROUP_INSTANCE', 'PROCESS_GROUP', 'APPLICATION', 'SERVICE' 'SYNTHETIC_TEST', 'SYNTHETIC_TEST_STEP']}
 
         # TODO - Change synthetic_tests_on_demand to synthetic_executions_on_demand
         # Will also need to change strings in the apiv2.py file and the util.py selectors and enpoints
@@ -136,7 +136,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
             opt_dynatrace_tenant,
             opt_dynatrace_api_token,
             time=time_range,
-            entity_types=entity_types
+            extra_params=entity_types
         )
 
         dynatrace_data = util.get_dynatrace_data(requests_info, verify=opt_ssl_certificate_verification,

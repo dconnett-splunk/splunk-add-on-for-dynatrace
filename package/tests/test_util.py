@@ -2,10 +2,13 @@ import pathlib
 from unittest import mock
 import re
 import os
-from requests.models import Response, PreparedRequest
+
+import requests
+from requests.models import Response, PreparedRequest, Request
+from requests import Session
 import package.bin.util as util
 import unittest
-from dynatrace_types import CollectionInterval, MetricDescriptor, MetricId, MetricSelector, MetricDescriptorCollection, Tenant
+from dynatrace_types import *
 from package.bin.util import V2Endpoints
 import pickle
 import json
@@ -34,13 +37,13 @@ def request_info_generator():
         # Expected url after formatting
         params = {}
         expected_url = tenant + endpoint.url
-        entity_types = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST","SYNTHETIC_TEST_STEP"]
+        extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST","SYNTHETIC_TEST_STEP"]
 
-        if endpoint.url_param_map:
-            params = {endpoint.url_param_map: "Computer1234"}
-            expected_url = expected_url.format(id=params[endpoint.url_param_map])
+        if endpoint.url_path_param:
+            params = {endpoint.url_path_param: "Computer1234"}
+            expected_url = expected_url.format(id=params[endpoint.url_path_param])
 
-        yield endpoint, tenant, api_token, time, params, entity_types, expected_url
+        yield endpoint, tenant, api_token, time, params, extra_params, expected_url
 
 
 def pickle_paths():
@@ -136,7 +139,7 @@ class TestUtil(unittest.TestCase):
         expected_url = "https://example.com/api/v2/1234"
         expected_params = {"name": "test"}
 
-        result_url, result_params = util.format_url_and_pop_params(endpoint, params, url)
+        result_url, result_params = util.format_url_and_pop_path_params(endpoint, params, url)
         print()
         print(f"result_url: {result_url}")
         print(f"result_params: {result_params}")
@@ -149,17 +152,24 @@ class TestUtil(unittest.TestCase):
         time = util.get_from_time()
         tenant = "test_tenant"
         api_token = "test_token"
+        print()
 
-        for endpoint, tenant, api_token, time, params, entity_types, expected_url in request_info_generator():
-            result = util.prepare_dynatrace_request(endpoint, tenant, api_token, time=time, params=params,
-                                                    entity_types=entity_types)
+        for endpoint, tenant, api_token, time, params, extra_params, expected_url in request_info_generator():
+            print(f'endpoint: {endpoint}')
+            print(f'tenant: {tenant}')
+            print(f'api_token: {api_token}')
+            print(f'time: {time}')
+            print(f'params: {params}')
+            print(f'extra_params: {extra_params}')
+
+            result = list(util.prepare_dynatrace_request(base_url=tenant, params=params, endpoint=endpoint, extra_params=extra_params))
 
             print()
             print(f"time: {time}")
             print(f"expected_url: {expected_url}")
             print(f"result: {result}")
 
-            self.assertEqual(result[0][0], expected_url)
+            self.assertEqual(expected_url, result[0][0])
 
     def test_parse_dynatrace_response(self):
         file_paths = sorted(pickled_test_inputs())
@@ -178,9 +188,9 @@ class TestUtil(unittest.TestCase):
             assert True
 
     def test_get_dynatrace_data(self):
-        for endpoint, tenant, api_token, time, params, entity_types, expected_url in request_info_generator():
+        for endpoint, tenant, api_token, time, params, extra_params, expected_url in request_info_generator():
             requests_info = util.prepare_dynatrace_request(endpoint, tenant, api_token, time=time, params=params,
-                                                           entity_types=entity_types)
+                                                           extra_params=extra_params)
 
             print()
             print(f"requests_info: {requests_info}")
@@ -263,22 +273,22 @@ class TestMetricsUtil(unittest.TestCase):
         from_time = util.get_from_time(opt_dynatrace_collection_interval_minutes)
         from_time_utc = util.get_from_time_utc(opt_dynatrace_collection_interval_minutes)
         start_timestamp = util.calculate_utc_start_timestamp(opt_dynatrace_collection_interval_minutes)
-        deftault_time = util.default_time()
+        default_time = util.default_time()
         print(f'from_time: {from_time}')
         print(f'from_time_utc: {from_time_utc}')
         print(f'start_timestamp: {start_timestamp}')
-        print(f'deftault_time: {deftault_time}')
+        print(f'deftault_time: {default_time}')
 
     def test_metric_request(self):
         print()
         path_from_package = Path('package/tests/pickle_requests')
-        script_location = pathlib.Path(__file__).resolve()
+        script_location: Path = pathlib.Path(__file__).resolve()
 
         # Calculate the absolute path of the directory containing the pickle files
         # This assumes that the pickle directory is in the same directory as the current script
-        pickle_path = script_location.parent / "pickle_requests"
-        prefix = "response_https__fbk23429livedynatracecom_api_v2_"
-        file_name = "metrics_1687888114.pkl"
+        pickle_path: Path = script_location.parent / "pickle_requests"
+        prefix: str = "response_https__fbk23429livedynatracecom_api_v2_"
+        file_name: str = "metrics_1687888114.pkl"
 
         metrics_request = pickle.load(open(Path(pickle_path, prefix + file_name), 'rb'))
         metrics_response = pickle.load(open(Path(pickle_path, prefix + file_name), 'rb'))
@@ -322,13 +332,18 @@ class TestMetricsUtil(unittest.TestCase):
         metric_descriptor: MetricDescriptor
         opt_dynatrace_tenant: Tenant
         metric_id: MetricId
-        metric_selector: MetricSelector
+        metric_selector_used: MetricSelector
+        tenant: Tenant
 
         for file_name, file_type, timestamp, url, data in sorted(pickled_test_inputs()):
             endpoint = get_endpoint_info(url)
             if endpoint == V2Endpoints.METRIC_DESCRIPTORS and file_type == "response":
                 metric_descriptor = util.parse_dynatrace_response(data.json(), endpoint)
-                print(f'metric_descriptor: {metric_descriptor}')
+                # This is a hack to get the metric_selector used in the request
+                # This is only needed for customer convenience, correlating which Splunk input created the  ouput data
+                metric_selector_used = MetricSelector(url.split('/')[-1])
+                # Get the first three parts of the URL, which is the tenant
+                tenant = Tenant('/'.join(url.split('/')[:3]))
                 metric_id = metric_descriptor['metricId']
                 #TODO: Find metric_selector
 
@@ -344,10 +359,88 @@ class TestMetricsUtil(unittest.TestCase):
                 process_timeseries_data = [item for item in dt_metrics.flatten_and_zip_timeseries(parsed_data)]
                 for data_point in process_timeseries_data:
                     print(f'data_point: {data_point}')
-                    event_data = dt_metrics.build_event_data(data_point, metric_descriptor, "opt_dynatrace_tenant")
+                    event_data = dt_metrics.build_event_data(data_point, metric_descriptor, tenant, metric_selector_used)
                     print(f'event_data: {event_data}')
 
             assert True
+
+
+
+    def test_join_data_live(self):
+        dynatrace_api_token, dynatrace_tenant = util.parse_secrets_env().values()
+        endpoint = V2Endpoints.ENTITIES
+        version = '2.0.8'
+        extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST", "SYNTHETIC_TEST_STEP"]
+        headers = {
+            'Authorization': f'Api-Token {dynatrace_api_token}',
+            'version': f'Splunk_TA_Dynatrace {version}',
+        }
+        params = {
+            'time': util.get_from_time_utc(),
+            'pageSize': '10'
+        }
+        base_url = dynatrace_tenant
+        request = util.prepare_dynatrace_request(dynatrace_tenant, params, endpoint, extra_params)
+
+        with requests.Session as session:
+            session.verify = True
+            #request: Request = requests.Request('GET', url, headers=headers, params=params)
+            prepared_request: PreparedRequest = session.prepare_request(request)
+            settings: dict = session.merge_environment_settings(prepared_request.url, {}, None, None, None)
+
+            session.params = {}
+            util.prepare_dynatrace_request(V2Endpoints.ENTITY, dynatrace_tenant, dynatrace_api_token, extra_params=extra_params)
+
+            # TODO Test Entity lookup
+            # TODO Test Problem detail lookup
+            pass
+
+
+
+    def test_merge_endpoint_params_synthetic(self):
+        endpoint = V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND
+        time = str(util.get_from_time_utc())
+        params = Params({'time': time})
+        expected_params = {'schedulingFrom': time}
+        result = util.format_params(endpoint, params)
+        print()
+        print(f'result: {result}')
+        self.assertEqual(expected_params, result)
+
+
+
+
+    def test_merge_endpoint_params_metrics(self):
+        endpoint = V2Endpoints.METRICS
+        time = str(util.get_from_time_utc())
+        params = Params({'time': time, 'pageSize': '10', 'metricSelector': 'builtin:host.cpu.usage:merge(0):avg'})
+        expected_params = {'fields' : 'unit,aggregationTypes', 'time': time, 'pageSize': '10', 'metricSelector': 'builtin:host.cpu.usage:merge(0):avg'}
+        result = util.format_params(endpoint, params)
+        print()
+        print(f'result: {result}')
+        self.assertEqual(expected_params, result)
+
+
+    def test_merge_endpoint_params_entities(self):
+        extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST","SYNTHETIC_TEST_STEP"]
+        time = str(util.get_from_time_utc())
+        endpoint = V2Endpoints.ENTITIES
+        params = Params({'time': time, 'pageSize': '10', 'entitySelector': 'HOST'})
+        expected_params = {'time': time, 'pageSize': '10', 'entitySelector': 'type("HOST")'}
+        result = util.format_params(endpoint, params)
+        print()
+        print(f'result: {result}')
+        self.assertEqual(expected_params, result)
+
+    def test_build_url(self):
+        endpoint = V2Endpoints.METRIC_DESCRIPTORS
+        tenant = Tenant("https://fbk23429.live.dynatrace.com")
+        params = Params({'metricSelector': 'builtin:host.cpu.usage:merge(0):avg'})
+        print(f'params: {params}')
+        expected_url = 'https://fbk23429.live.dynatrace.com/api/v2/metrics/builtin:host.cpu.usage:merge(0):avg'
+        result = util.build_url(endpoint, tenant, params)
+        print(f'result: {result}')
+        self.assertEqual(expected_url, result)
 
 
 if __name__ == '__main__':
