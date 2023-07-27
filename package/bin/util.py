@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from urllib.parse import quote_plus
 from requests import Response, Request, PreparedRequest, Session
 import re
+import string
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -45,7 +46,7 @@ class EndpointInfo:
     url: URL
     selector: ResponseSelector
     params: Optional[Params]
-    url_param_map: Optional[str]
+    url_path_param: Optional[PathParam]
 
 
 class V2Endpoints(Enum):
@@ -53,12 +54,8 @@ class V2Endpoints(Enum):
         EndpointInfo(
             URL('/api/v2/metrics'),
             ResponseSelector('metrics'),
-            Params({'nextPageKey': 'nextPageKey',
-                    'metricSelector': 'metricSelector',
-                    'text': 'text',
-                    'fields': ['fields'],
-                    'writtenSince': 'writtenSince',
-                    'metadataSelector': 'metadataSelector'}),
+            Params({'metricSelector': '{metricSelector}',
+                    'fields': 'unit,aggregationTypes'}),
             None)
     METRICS_QUERY = \
         EndpointInfo(
@@ -71,25 +68,25 @@ class V2Endpoints(Enum):
             URL('/api/v2/metrics/{id}'),
             ResponseSelector('metricId'),
             None,
-            'metricSelector')
+            PathParam('metricSelector'))
     ENTITIES = \
         EndpointInfo(
             URL('/api/v2/entities'),
             ResponseSelector('entities'),
-            Params({'entitySelector': 'type("HOST", "APPLICATION", "SERVICE", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", SYNTHETIC_TEST", "SYNTHETIC_TEST_STEP")'}),
+            Params({'entitySelector': 'type(\"{entitySelector}\")'}),
             None)
     ENTITY = \
         EndpointInfo(
             URL('/api/v2/entities/{id}'),
             ResponseSelector("entities"),
             None,
-            'entity_id')
+            PathParam('entity_id'))
     PROBLEM = \
         EndpointInfo(
             URL('/api/v2/problems/{id}'),
             ResponseSelector('problem'),
             None,
-            'problemId') # Not sure about this one
+            PathParam('problemId')) # Not sure about this one
     PROBLEMS = \
         EndpointInfo(
             URL('/api/v2/problems'),
@@ -112,14 +109,14 @@ class V2Endpoints(Enum):
         EndpointInfo(
             URL('/api/v2/synthetic/executions'),
             ResponseSelector('executions'),
-            None,
+            Params({'schedulingFrom': '{time}'}),
             None)
     SYNTHETIC_TEST_ON_DEMAND = \
         EndpointInfo(
             URL('/api/v2/synthetic/executions/{id}/fullReport'),
             ResponseSelector('entityId'),
             None,
-            'executionId')
+            PathParam('executionId'))
     SYNTHETIC_MONITORS_HTTP = \
         EndpointInfo(
             URL('/api/v1/synthetic/monitors'),
@@ -131,7 +128,7 @@ class V2Endpoints(Enum):
             URL('/api/v1/synthetic/monitors/{id}'),
             ResponseSelector('entityId'),
             None,
-            'entityId')
+            PathParam('entityId'))
     SYNTHETIC_MONITORS_HTTP_V2 = \
         EndpointInfo(
             URL('/api/v2/synthetic/execution'),
@@ -143,7 +140,7 @@ class V2Endpoints(Enum):
             URL('/api/v2/synthetic/execution/{id}/SUCCESS'),
             ResponseSelector('monitorId'),
             None,
-            'monitorId')
+            PathParam('monitorId'))
     SYNTHETIC_TESTS_RESULTS = \
         EndpointInfo(
             URL('/api/v2/synthetic/tests/results'),
@@ -164,8 +161,8 @@ class V2Endpoints(Enum):
         return self.value.params if isinstance(self.value, EndpointInfo) else None
 
     @property
-    def url_param_map(self):
-        return self.value.url_param_map if isinstance(self.value, EndpointInfo) else None
+    def url_path_param(self):
+        return self.value.url_path_param if isinstance(self.value, EndpointInfo) else None
 
 
 # These selectors are used to parse the response from the Dynatrace API.
@@ -253,7 +250,7 @@ def get_dynatrace_environment_active_gate_uri(domain, environment_id):
     return dynatrace_environment_active_gate_v2.format(your_domain=domain, your_environment_id=environment_id)
 
 
-def get_endpoint_info(url: str) -> Optional[EndpointInfo]:
+def endpoint_enum_lookup(url: str) -> Optional[EndpointInfo]:
     """Match a URL to an EndpointInfo object."""
     for endpoint in V2Endpoints:
         endpoint_url_regex = re.escape(endpoint.value.url).replace(r"\{id\}", r"[^/]+")
@@ -291,8 +288,9 @@ def parse_secrets_env():
     if os.path.exists(secrets_file):
         with open(secrets_file) as f:
             for line in f:
-                (key, val) = line.split('=')
-                secrets[key] = val.strip()
+                if not line.startswith('#'):
+                    (key, val) = line.split('=')
+                    secrets[key] = val.strip()
     return secrets
 
 
@@ -354,50 +352,92 @@ def create_session(tenant, api_token, verify=True) -> requests.Session:
     return session
 
 
-def format_url_and_pop_params(endpoint: V2Endpoints, params: dict, url: str) -> Tuple[str, dict]:
+def format_url_and_pop_path_params(endpoint: V2Endpoints, params: Params, url: URL) -> Tuple[URL, Params]:
     """Format the URL and pop the URL Path parameter from the params dictionary.
     Why are we passing Path Parameters through the Query Parameters?
     No idea, but I feel like there was a reason..."""
-    if endpoint.url_param_map:
-        param_key = endpoint.url_param_map
+    if endpoint.url_path_param:
+        param_key = endpoint.url_path_param
         url = url.format(id=params[param_key])
         params.pop(param_key)
     return url, params
 
 
-def prepare_dynatrace_request(endpoint: V2Endpoints, tenant, api_token, params=None, time=None, page_size=None,
-                              entity_types=None):
-    if params is None:
-        params = {}
+# def prepare_dynatrace_request(endpoint: V2Endpoints, tenant, api_token, params=None, time=None, page_size=None,
+#                               extra_params=None):
+#     if params is None:
+#         params = {}
+#
+#     endpoint_url = endpoint.url
+#     selector = endpoint.selector
+#     url = tenant + endpoint_url
+#     url, params = format_url_and_pop_path_params(endpoint, params, url)
+#
+#     headers = {
+#         'Authorization': 'Api-Token {}'.format(api_token),
+#         'version': 'Splunk_TA_Dynatrace'
+#     }
+#
+#     # TODO Written before Enums, might be able to use Enums here instead of strings
+#     prepared_params = {
+#         **params,
+#         **({'fields': 'unit,aggregationTypes'} if 'metrics' in selector else {}),
+#         **({'writtenSince': str(time)} if 'metrics' in selector and time else {
+#             'from': str(time)} if time and endpoint != V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND else {}),
+#         **({'schedulingFrom': str(time)} if endpoint == V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND and time else {}),
+#     }
+#     if page_size:
+#         prepared_params['pageSize'] = page_size
+#
+#     # This is a hack because Dynatrace doesn't allow you to query for multiple entity types
+#     if endpoint == V2Endpoints.ENTITIES and extra_params:
+#         return [(url, headers, {**prepared_params, 'entitySelector': f'type("{entity_type}")'}, endpoint) for
+#                 entity_type in
+#                 extra_params]
+#
+#     return [(url, headers, prepared_params, endpoint)]
 
+
+def format_params(endpoint, params):
+    # Iterate over the endpoint Enum params
+    if params:
+        for key, value in endpoint.params.items():
+            # Format it if it can be formatted
+            if '{' in value:
+                print()
+                print(f'Value: {value}')
+                print(f'Params: {params}')
+                params[key] = value.format(**params)
+                replaced_value = [tup[1] for tup in string.Formatter().parse(value) if tup[1] is not None][0]
+                if replaced_value != key:
+                    params.pop(replaced_value)
+            else:
+                params[key] = value
+    return params
+
+def build_url(endpoint: V2Endpoints, tenant: Tenant, params: Params) -> URL:
+    url = URL(tenant + endpoint.url)
+    url, params = format_url_and_pop_path_params(endpoint, params, url)
+    return URL(url)
+
+
+def prepare_dynatrace_request(base_url, params, endpoint: V2Endpoints, extra_params=None):
     endpoint_url = endpoint.url
-    selector = endpoint.selector
-    url = tenant + endpoint_url
-    url, params = format_url_and_pop_params(endpoint, params, url)
+    url = base_url + endpoint_url
+    url, params = format_url_and_pop_path_params(endpoint, params, url)
+    print(f'URL: {url}')
+    print(f'Params: {params}')
 
-    headers = {
-        'Authorization': 'Api-Token {}'.format(api_token),
-        'version': 'Splunk_TA_Dynatrace'
-    }
+    prepared_params = format_params(endpoint, params)
+    if endpoint == V2Endpoints.ENTITIES and extra_params:
+        for entity_type in extra_params:
+            prepared_params['entitySelector'] = entity_type
+            yield url, prepared_params.copy(), endpoint
+    else:
+        # This is a hack because Dynatrace doesn't allow you to query for multiple entity types
+        yield url, prepared_params, endpoint
 
-    # TODO Written before Enums, might be able to use Enums here instead of strings
-    prepared_params = {
-        **params,
-        **({'fields': 'unit,aggregationTypes'} if 'metrics' in selector else {}),
-        **({'writtenSince': str(time)} if 'metrics' in selector and time else {
-            'from': str(time)} if time and endpoint != V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND else {}),
-        **({'schedulingFrom': str(time)} if endpoint == V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND and time else {}),
-    }
-    if page_size:
-        prepared_params['pageSize'] = page_size
 
-    # This is a hack because Dynatrace doesn't allow you to query for multiple entity types
-    if endpoint == V2Endpoints.ENTITIES and entity_types:
-        return [(url, headers, {**prepared_params, 'entitySelector': f'type("{entity_type}")'}, endpoint) for
-                entity_type in
-                entity_types]
-
-    return [(url, headers, prepared_params, endpoint)]
 
 
 def remove_sensitive_info_recursive(data, keys_to_remove):
@@ -409,23 +449,19 @@ def remove_sensitive_info_recursive(data, keys_to_remove):
     return data
 
 
-def get_dynatrace_data(session, requests_info, opt_helper=None):
-    for url, headers, params, endpoint in requests_info:
-        for response_json in _get_dynatrace_data(session, url, headers, params, opt_helper):
+def get_dynatrace_data(session, prepared_request, settings, opt_helper=None):
+    for url, headers, params, endpoint in prepared_request:
+        for response_json in _get_dynatrace_data(session, prepared_request, settings, opt_helper):
             parsed_response = parse_dynatrace_response(response_json, endpoint)
             if parsed_response:
                 return parsed_response
     return []
 
 
-def _get_dynatrace_data(session, url, headers, params, opt_helper) -> json:
+def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: dict, opt_helper) -> json:
     while True:
         try:
-            request: Request = requests.Request('GET', url, headers=headers, params=params)
-            prepared_request: PreparedRequest = session.prepare_request(request)
-            settings: dict = session.merge_environment_settings(prepared_request.url, {}, None, None, None)
             response: Response = session.send(prepared_request, **settings)
-
             if opt_helper:
                 opt_helper.log_debug(f'Response: {response.text}')
             response.raise_for_status()
@@ -436,6 +472,7 @@ def _get_dynatrace_data(session, url, headers, params, opt_helper) -> json:
 
             if 'nextPageKey' not in response_json or response_json['nextPageKey'] is None:
                 break
+
             params = {'nextPageKey': response_json['nextPageKey']}
 
         except requests.exceptions.HTTPError as err:

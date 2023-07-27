@@ -51,11 +51,13 @@ def flatten_and_zip_timeseries(timeseries_data: MetricData):
                 yield data_point
 
 
-def build_event_data(item: DataPoint, metric_descriptor: MetricDescriptor, opt_dynatrace_tenant: Tenant):
+def build_event_data(item: DataPoint, metric_descriptor: MetricDescriptor, opt_dynatrace_tenant: Tenant, metric_selector: MetricSelector):
     event_data = {
         **item,
-        **{'metric_name': metric_descriptor['metricId'], 'value': item['value'],
-           'dynatraceTenant': opt_dynatrace_tenant},
+        **{'metric_name': metric_descriptor['metricId'],
+           'value': item['value'],
+           'dynatraceTenant': opt_dynatrace_tenant,
+           'metric_selector_used': metric_selector},
         **({'unit': metric_descriptor['unit']} if 'unit' in metric_descriptor else {})}
     return event_data
 
