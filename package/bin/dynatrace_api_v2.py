@@ -131,7 +131,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         else:
             entity_types = None
 
-        requests_info = util.prepare_dynatrace_request(
+        requests_info = util.prepare_dynatrace_params(
             endpoint,
             opt_dynatrace_tenant,
             opt_dynatrace_api_token,
@@ -156,10 +156,10 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
             record['endpoint'] = endpoint
 
             if endpoint == 'entities':
-                entity_request_info = util.prepare_dynatrace_request('entity',
-                                                                     opt_dynatrace_tenant,
-                                                                     opt_dynatrace_api_token,
-                                                                     params={'entity_id': record['entityId']})
+                entity_request_info = util.prepare_dynatrace_params('entity',
+                                                                    opt_dynatrace_tenant,
+                                                                    opt_dynatrace_api_token,
+                                                                    params={'entity_id': record['entityId']})
                 entity_data = util.get_dynatrace_data(entity_request_info,
                                                       verify=opt_ssl_certificate_verification,
                                                       opt_helper=helper)
@@ -167,10 +167,10 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
 
             # Need to handle sythetic execution data differently
             if endpoint == 'synthetic_monitors_http':
-                monitor_request_info = util.prepare_dynatrace_request('synthetic_monitor_http_v2',
-                                                                      opt_dynatrace_tenant,
-                                                                      opt_dynatrace_api_token,
-                                                                      params={'entityId': record['entityId']})
+                monitor_request_info = util.prepare_dynatrace_params('synthetic_monitor_http_v2',
+                                                                     opt_dynatrace_tenant,
+                                                                     opt_dynatrace_api_token,
+                                                                     params={'entityId': record['entityId']})
                 helper.log_debug('monitor_request_info: {}'.format(monitor_request_info))
                 monitor_data = util.get_dynatrace_data(monitor_request_info,
                                                        verify=opt_ssl_certificate_verification,
@@ -181,10 +181,10 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
 
             if endpoint == 'synthetic_tests_on_demand':
                 execution_id = record['executionId']
-                on_demand_execution_request_info = util.prepare_dynatrace_request('synthetic_test_on_demand',
-                                                                                  opt_dynatrace_tenant,
-                                                                                  opt_dynatrace_api_token,
-                                                                                  params={'executionId': execution_id})
+                on_demand_execution_request_info = util.prepare_dynatrace_params('synthetic_test_on_demand',
+                                                                                 opt_dynatrace_tenant,
+                                                                                 opt_dynatrace_api_token,
+                                                                                 params={'executionId': execution_id})
                 helper.log_debug('execution_request_info: {}'.format(on_demand_execution_request_info))
                 execution_data = util.get_dynatrace_data(on_demand_execution_request_info,
                                                          verify=opt_ssl_certificate_verification,

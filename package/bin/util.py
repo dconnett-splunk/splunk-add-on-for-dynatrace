@@ -28,7 +28,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         get_dynatrace_entity_end"""
 
 __author__ = "David Connett"
-__version__ = "1.0.0"
+__version__ = "2.0.8"
 __maintainer__ = "David Connett"
 __email__ = "dconnett@splunk.com"
 __status__ = "Development"
@@ -54,7 +54,7 @@ class V2Endpoints(Enum):
         EndpointInfo(
             URL('/api/v2/metrics'),
             ResponseSelector('metrics'),
-            Params({'metricSelector': '{metricSelector}',
+            Params({'writtenSince': '{time}',
                     'fields': 'unit,aggregationTypes'}),
             None)
     METRICS_QUERY = \
@@ -65,10 +65,10 @@ class V2Endpoints(Enum):
             None)
     METRIC_DESCRIPTORS = \
         EndpointInfo(
-            URL('/api/v2/metrics/{id}'),
+            URL('/api/v2/metrics/{metricKey}'),
             ResponseSelector('metricId'),
             None,
-            PathParam('metricSelector'))
+            PathParam('metricKey'))
     ENTITIES = \
         EndpointInfo(
             URL('/api/v2/entities'),
@@ -77,16 +77,16 @@ class V2Endpoints(Enum):
             None)
     ENTITY = \
         EndpointInfo(
-            URL('/api/v2/entities/{id}'),
+            URL('/api/v2/entities/{entityId}'),
             ResponseSelector("entities"),
             None,
-            PathParam('entity_id'))
+            PathParam('entityId'))
     PROBLEM = \
         EndpointInfo(
-            URL('/api/v2/problems/{id}'),
+            URL('/api/v2/problems/{problemId}'),
             ResponseSelector('problem'),
             None,
-            PathParam('problemId')) # Not sure about this one
+            PathParam('problemId'))
     PROBLEMS = \
         EndpointInfo(
             URL('/api/v2/problems'),
@@ -113,7 +113,7 @@ class V2Endpoints(Enum):
             None)
     SYNTHETIC_TEST_ON_DEMAND = \
         EndpointInfo(
-            URL('/api/v2/synthetic/executions/{id}/fullReport'),
+            URL('/api/v2/synthetic/executions/{executionId}/fullReport'),
             ResponseSelector('entityId'),
             None,
             PathParam('executionId'))
@@ -125,7 +125,7 @@ class V2Endpoints(Enum):
             None)
     SYNTHETIC_MONITOR_HTTP = \
         EndpointInfo(
-            URL('/api/v1/synthetic/monitors/{id}'),
+            URL('/api/v1/synthetic/monitors/{entityId}'),
             ResponseSelector('entityId'),
             None,
             PathParam('entityId'))
@@ -137,7 +137,7 @@ class V2Endpoints(Enum):
             None)
     SYNTHETIC_MONITOR_HTTP_V2 = \
         EndpointInfo(
-            URL('/api/v2/synthetic/execution/{id}/SUCCESS'),
+            URL('/api/v2/synthetic/execution/{monitorId}/SUCCESS'),
             ResponseSelector('monitorId'),
             None,
             PathParam('monitorId'))
@@ -163,44 +163,6 @@ class V2Endpoints(Enum):
     @property
     def url_path_param(self):
         return self.value.url_path_param if isinstance(self.value, EndpointInfo) else None
-
-
-# These selectors are used to parse the response from the Dynatrace API.
-# AKA The top level key in the map returned by the API.
-v2_params = {'metrics':
-                 {'nextPageKey': 'nextPageKey',
-                  'metricSelector': 'metricSelector',
-                  'text': 'text',
-                  'fields': ['fields'],
-                  'writtenSince': 'writtenSince',
-                  'metadataSelector': 'metadataSelector'},
-             'metrics_query':
-                 {'metricSelector': 'metricSelector',
-                  'resolution': 'resolution',
-                  'entitySelector': 'entitySelector',
-                  'mzSelector': 'mzSelector',
-                  'from': 'from',
-                  'to': 'to'},
-             'entities': {
-                 'entitySelector': 'type("HOST", "APPLICATION", "SERVICE", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE")'}}
-
-# These selectors are used to parse the response from the Dynatrace API.
-# AKA The top level key in the map returned by the API.
-# v2_selectors = {'metrics': 'metrics',
-#                 'metric_descriptors': 'metricId',
-#                 'entities': 'entities',
-#                 'entity': 'entities',
-#                 'problems': 'problems',
-#                 'events': 'events',
-#                 'synthetic_locations': 'locations',
-#                 'synthetics_on_demand': 'executions',
-#                 'synthetic_monitors_http': 'monitors',
-#                 'synthetic_monitor_http': 'entityId',
-#                 'synthetic_monitor_http_v2': 'monitorId',
-#                 'synthetic_tests_on_demand': 'executions',
-#                 'synthetic_test_on_demand': 'entityId',
-#                 'synthetic_nodes': 'monitors',
-#                 'metrics_query': 'result'}
 
 
 def get_current_working_directory():
@@ -356,88 +318,117 @@ def format_url_and_pop_path_params(endpoint: V2Endpoints, params: Params, url: U
     """Format the URL and pop the URL Path parameter from the params dictionary.
     Why are we passing Path Parameters through the Query Parameters?
     No idea, but I feel like there was a reason..."""
+    new_params = Params(params.copy())
     if endpoint.url_path_param:
+        print(f'URL Path Param: {endpoint.url_path_param}')
         param_key = endpoint.url_path_param
-        url = url.format(id=params[param_key])
-        params.pop(param_key)
-    return url, params
+        print(f'Param Key: {param_key}')
+        if param_key in params:
+            url = url.format(**{param_key: params.get(param_key)})
+            new_params.pop(param_key)
+    return url, new_params
 
 
-# def prepare_dynatrace_request(endpoint: V2Endpoints, tenant, api_token, params=None, time=None, page_size=None,
-#                               extra_params=None):
-#     if params is None:
-#         params = {}
-#
-#     endpoint_url = endpoint.url
-#     selector = endpoint.selector
-#     url = tenant + endpoint_url
-#     url, params = format_url_and_pop_path_params(endpoint, params, url)
-#
-#     headers = {
-#         'Authorization': 'Api-Token {}'.format(api_token),
-#         'version': 'Splunk_TA_Dynatrace'
-#     }
-#
-#     # TODO Written before Enums, might be able to use Enums here instead of strings
-#     prepared_params = {
-#         **params,
-#         **({'fields': 'unit,aggregationTypes'} if 'metrics' in selector else {}),
-#         **({'writtenSince': str(time)} if 'metrics' in selector and time else {
-#             'from': str(time)} if time and endpoint != V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND else {}),
-#         **({'schedulingFrom': str(time)} if endpoint == V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND and time else {}),
-#     }
-#     if page_size:
-#         prepared_params['pageSize'] = page_size
-#
-#     # This is a hack because Dynatrace doesn't allow you to query for multiple entity types
-#     if endpoint == V2Endpoints.ENTITIES and extra_params:
-#         return [(url, headers, {**prepared_params, 'entitySelector': f'type("{entity_type}")'}, endpoint) for
-#                 entity_type in
-#                 extra_params]
-#
-#     return [(url, headers, prepared_params, endpoint)]
+def format_params(endpoint: V2Endpoints, params: Params) -> Params:
+    """This function serves 3 purposes and is likely a very bad idea.
+    Injects default parameters from V2Endpoints Enum,
+                Params Input: {}
+                -> {'fields': 'unit,aggregationTypes'} for METRICS,
+    Formats default parameters from V2Endpoints Enum (if it exists)
+                Params Input: {'entitySelector': 'HOST'}
+                V2Endpoint Input: {'entitySelector': 'type(\"{entitySelector}\")'}
+                -> {'entitySelector': 'type('HOST')'},
+    Renames parameters with the same meaning from the V2Endpoints Enum,
+                Params Input: {'time': 1234}
+                V2Endpoints Input: {'writtenSince': '{time}'}
+                 -> {'writtenSince': '1234'}
 
+    Why? Different API endpoints need specific inputs, but many are actually the same data and just need to be renamed,
+    or some endpoints always need the same inputs all the time.
 
-def format_params(endpoint, params):
+    Cleaner idea: defining functions or classes for each endpoint would probably be a better idea,
+    but this design was chosen because of the evolution of the code over time. This is a hack, but it works... for now.
+
+    Important to know:
+        1. If you pass a parameter that changes names, the old one will be removed {time} -> {writtenSince}
+        2. Parameters that have a format string will be formatted with the input params of the same key name
+            {'entitySelector': 'HOST'}
+            {'entitySelector': 'type(\"{entitySelector}\")'}
+                -> {'entitySelector': 'type(\"HOST\")'}
+
+    """
     # Iterate over the endpoint Enum params
-    if params:
+    if params and endpoint.params:
         for key, value in endpoint.params.items():
             # Format it if it can be formatted
             if '{' in value:
-                print()
-                print(f'Value: {value}')
-                print(f'Params: {params}')
-                params[key] = value.format(**params)
                 replaced_value = [tup[1] for tup in string.Formatter().parse(value) if tup[1] is not None][0]
-                if replaced_value != key:
-                    params.pop(replaced_value)
+                if replaced_value in params:
+                    # Gets the format string from the value, and replaces it with the key
+                    # AKA: {'writtenSince': '{time}'} -> 'time'
+                    replaced_value: str = [tup[1] for tup in string.Formatter().parse(value) if tup[1] is not None][0]
+                    print(f'Replaced Value: {replaced_value}')
+                    print()
+                    print(f'Key: {key}')
+                    print(f'Value: {value}')
+                    print(f'Params: {params}')
+                    # Format the default V2Endpoints value with the input params
+                    # AKA: {'writtenSince': '{time}'} -> {'writtenSince': '1234'}
+                    params[key] = value.format(**params)
+
+                    # If we renamed the key, remove the old key
+                    # AKA: {'writtenSince': '1234', 'time': '1234'} -> {'writtenSince': '1234'}
+                    if replaced_value != key:
+                        params.pop(replaced_value)
+            elif '{' in value and key not in params:
+                pass
             else:
                 params[key] = value
     return params
 
+
 def build_url(endpoint: V2Endpoints, tenant: Tenant, params: Params) -> URL:
     url = URL(tenant + endpoint.url)
     url, params = format_url_and_pop_path_params(endpoint, params, url)
+    print(f'URL: {url}')
+    print(f'Params: {params}')
     return URL(url)
 
 
-def prepare_dynatrace_request(base_url, params, endpoint: V2Endpoints, extra_params=None):
+def prepare_dynatrace_headers(api_token, extra_headers=None):
+    headers = {
+        'Authorization': f'Api-Token {api_token}',
+        'version': f'Splunk_TA_Dynatrace {__version__}',
+    }
+    return {**headers, **extra_headers} if extra_headers else headers
+
+
+def prepare_dynatrace_params(base_url, params, endpoint: V2Endpoints, extra_params=None):
+    """Prepare a Dynatrace request for the given endpoint and parameters.
+    Params that are expected:
+        time
+
+    """
     endpoint_url = endpoint.url
     url = base_url + endpoint_url
     url, params = format_url_and_pop_path_params(endpoint, params, url)
     print(f'URL: {url}')
     print(f'Params: {params}')
 
-    prepared_params = format_params(endpoint, params)
+    prepared_params: Params = format_params(endpoint, params)
     if endpoint == V2Endpoints.ENTITIES and extra_params:
         for entity_type in extra_params:
             prepared_params['entitySelector'] = entity_type
+            format_params(endpoint, prepared_params)
             yield url, prepared_params.copy(), endpoint
     else:
-        # This is a hack because Dynatrace doesn't allow you to query for multiple entity types
         yield url, prepared_params, endpoint
 
 
+def prepare_dynatrace_request(session: Session, url: URL, params: Params):
+    session.url = url
+    session.params = params
+    return session.prepare_request(Request('GET', url, params=params))
 
 
 def remove_sensitive_info_recursive(data, keys_to_remove):
@@ -449,8 +440,15 @@ def remove_sensitive_info_recursive(data, keys_to_remove):
     return data
 
 
-def get_dynatrace_data(session, prepared_request, settings, opt_helper=None):
-    for url, headers, params, endpoint in prepared_request:
+def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
+    for url, params, endpoint in prepared_params_list:
+        prepared_request = prepare_dynatrace_request(session, url, params)
+        settings = session.merge_environment_settings(prepared_request.url, {}, None, None, None)
+        if opt_helper:
+            opt_helper.log_debug(f'URL: {url}')
+            opt_helper.log_debug(f'Params: {params}')
+            opt_helper.log_debug(f'Prepared Request: {prepared_request}')
+            opt_helper.log_debug(f'Settings: {settings}')
         for response_json in _get_dynatrace_data(session, prepared_request, settings, opt_helper):
             parsed_response = parse_dynatrace_response(response_json, endpoint)
             if parsed_response:
@@ -488,12 +486,16 @@ def parse_dynatrace_response(response: json, endpoint: V2Endpoints):
     selector = endpoint.selector
     # Check if the response has an entityId, if so, return early, this is for entities endpoint
     if endpoint == V2Endpoints.ENTITIES in response and isinstance(response, dict):
-        return response
+        return EntitiesList(**response)
     # Check if monitorId is a top level key, return immediately if so this is for synthetic endpoint
     elif endpoint == V2Endpoints.SYNTHETIC_MONITOR_HTTP_V2 and isinstance(response, dict):
         return MonitorExecutionResults(**response)
     elif endpoint == V2Endpoints.METRIC_DESCRIPTORS and isinstance(response, dict):
         return MetricDescriptor(**response)
+    elif endpoint == V2Endpoints.ENTITY and isinstance(response, dict):
+        return Entity(**response)
+    elif endpoint == V2Endpoints.PROBLEM and isinstance(response, dict):
+        return Problem(**response)
 
     # This next line grabs a specific key from the response, if it doesn't exist, it returns the response
     parsed_response = response.get(selector, response)

@@ -14,7 +14,7 @@ from dynatrace_types import *
 
 
 def prepare_and_get_data(api_type, tenant, token, params, session, helper):
-    request_info = util.prepare_dynatrace_request(api_type, tenant, token, params=params)
+    request_info = util.prepare_dynatrace_params(api_type, tenant, token, params=params)
     helper.log_debug(f"Request Info: {request_info}")
     data = util.get_dynatrace_data(session, request_info, opt_helper=helper)
 
