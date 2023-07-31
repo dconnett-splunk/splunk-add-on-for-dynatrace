@@ -24,11 +24,11 @@ session = create_session(dynatrace_tenant, dynatrace_api_token)
 
 
 def test_synthetic_monitors():
-    synthetic_monitor_http = prepare_dynatrace_request(V2Endpoints.SYNTHETIC_MONITORS_HTTP,
-                                                       dynatrace_tenant,
-                                                       dynatrace_api_token,
-                                                       time=time_range,
-                                                       page_size=4)
+    synthetic_monitor_http = prepare_dynatrace_params(V2Endpoints.SYNTHETIC_MONITORS_HTTP,
+                                                      dynatrace_tenant,
+                                                      dynatrace_api_token,
+                                                      time=time_range,
+                                                      page_size=4)
 
     # Fetch the data using the prepared request information
     synthetic_monitor_http = get_dynatrace_data(session, synthetic_monitor_http)
@@ -37,10 +37,10 @@ def test_synthetic_monitors():
         print(test)
 
     for monitor in synthetic_monitor_http:
-        requests_info = prepare_dynatrace_request(V2Endpoints.SYNTHETIC_MONITOR_HTTP_V2,
-                                                  dynatrace_tenant,
-                                                  dynatrace_api_token,
-                                                  params={'entityId': monitor['entityId']})
+        requests_info = prepare_dynatrace_params(V2Endpoints.SYNTHETIC_MONITOR_HTTP_V2,
+                                                 dynatrace_tenant,
+                                                 dynatrace_api_token,
+                                                 params={'entityId': monitor['entityId']})
         monitor_http_results = get_dynatrace_data(session, requests_info)
         # print(monitor_http_results)
 
@@ -56,9 +56,9 @@ def test_synthetic_monitors():
 # Get all the on demand executions
 
 def test_on_demand_executions():
-    on_demand_executions = prepare_dynatrace_request(V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND,
-                                                     dynatrace_tenant,
-                                                     dynatrace_api_token)
+    on_demand_executions = prepare_dynatrace_params(V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND,
+                                                    dynatrace_tenant,
+                                                    dynatrace_api_token)
     on_demand_executions = get_dynatrace_data(session, on_demand_executions)
     # print(on_demand_executions)
 
@@ -67,10 +67,10 @@ def test_on_demand_executions():
         execution_ids.append(execution['executionId'])
 
     for execution_id in execution_ids:
-        on_demand_execution_request_info = prepare_dynatrace_request(V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND,
-                                                                     dynatrace_tenant,
-                                                                     dynatrace_api_token,
-                                                                     params={'executionId': execution_id})
+        on_demand_execution_request_info = prepare_dynatrace_params(V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND,
+                                                                    dynatrace_tenant,
+                                                                    dynatrace_api_token,
+                                                                    params={'executionId': execution_id})
         on_demand_execution = get_dynatrace_data(session, on_demand_execution_request_info)
         keys_to_remove = ['responseBody', 'peerCertificateDetails']
         print(remove_sensitive_info_recursive(on_demand_execution, keys_to_remove))
@@ -94,12 +94,12 @@ def test_on_demand_executions():
 
 page_size = 4
 entity_types = ['HOST', 'PROCESS_GROUP_INSTANCE', 'PROCESS_GROUP', 'APPLICATION', 'SERVICE']
-requests_info = prepare_dynatrace_request(V2Endpoints.ENTITIES,
-                                          dynatrace_tenant,
-                                          dynatrace_api_token,
-                                          time=time_range,
-                                          page_size=page_size,
-                                          entity_types=entity_types)
+requests_info = prepare_dynatrace_params(V2Endpoints.ENTITIES,
+                                         dynatrace_tenant,
+                                         dynatrace_api_token,
+                                         time=time_range,
+                                         page_size=page_size,
+                                         entity_types=entity_types)
 
 # Fetch the data using the prepared request information
 entities_list = get_dynatrace_data(session, requests_info)
@@ -107,21 +107,21 @@ entities_list = get_dynatrace_data(session, requests_info)
 # Print the fetched data
 for entity in entities_list:
     print(entity['entityId'])
-    entity_info = get_dynatrace_data(session, prepare_dynatrace_request(V2Endpoints.ENTITY,
-                                                                        dynatrace_tenant,
-                                                                        dynatrace_api_token,
-                                                                        params={'entity_id': entity['entityId']}))
+    entity_info = get_dynatrace_data(session, prepare_dynatrace_params(V2Endpoints.ENTITY,
+                                                                       dynatrace_tenant,
+                                                                       dynatrace_api_token,
+                                                                       params={'entity_id': entity['entityId']}))
     print(entity_info)
 
 
 
 
 # Testing new data collection functions
-metrics_request_info = prepare_dynatrace_request(V2Endpoints.METRICS,
-                                                 dynatrace_tenant,
-                                                 dynatrace_api_token,
-                                                 time=get_from_time(minutes),
-                                                 page_size=page_size)
+metrics_request_info = prepare_dynatrace_params(V2Endpoints.METRICS,
+                                                dynatrace_tenant,
+                                                dynatrace_api_token,
+                                                time=get_from_time(minutes),
+                                                page_size=page_size)
 
 stored_metrics = []
 metrics = get_dynatrace_data(session, metrics_request_info)
@@ -129,31 +129,31 @@ for metric in metrics:
     print(metric)
     stored_metrics.append(metric)
 
-problems_requests_info = prepare_dynatrace_request(V2Endpoints.PROBLEMS,
-                                                   dynatrace_tenant,
-                                                   dynatrace_api_token,
-                                                   time=get_from_time(minutes))
+problems_requests_info = prepare_dynatrace_params(V2Endpoints.PROBLEMS,
+                                                  dynatrace_tenant,
+                                                  dynatrace_api_token,
+                                                  time=get_from_time(minutes))
 
 problems = get_dynatrace_data(session, problems_requests_info)
 
 for problem in problems:
     print(problem)
 
-events_requests_info = prepare_dynatrace_request(V2Endpoints.EVENTS,
-                                                 dynatrace_tenant,
-                                                 dynatrace_api_token,
-                                                 time=get_from_time(minutes),
-                                                 page_size=page_size)
+events_requests_info = prepare_dynatrace_params(V2Endpoints.EVENTS,
+                                                dynatrace_tenant,
+                                                dynatrace_api_token,
+                                                time=get_from_time(minutes),
+                                                page_size=page_size)
 
 events = get_dynatrace_data(session, events_requests_info)
 for event in events:
     print(event)
 
-synthetic_locations = prepare_dynatrace_request(V2Endpoints.SYNTHETIC_LOCATIONS,
-                                                dynatrace_tenant,
-                                                dynatrace_api_token,
-                                                time=get_from_time(minutes),
-                                                page_size=page_size)
+synthetic_locations = prepare_dynatrace_params(V2Endpoints.SYNTHETIC_LOCATIONS,
+                                               dynatrace_tenant,
+                                               dynatrace_api_token,
+                                               time=get_from_time(minutes),
+                                               page_size=page_size)
 
 locations = get_dynatrace_data(session, synthetic_locations)
 for location in locations:
@@ -178,11 +178,11 @@ end_time = datetime.now().isoformat() + 'Z'
 start_time = (datetime.now() - timedelta(hours=1)).isoformat() + 'Z'
 
 
-metrics_request_info = prepare_dynatrace_request(V2Endpoints.METRICS,
-                                                 dynatrace_tenant,
-                                                 dynatrace_api_token,
-                                                 time=get_from_time(minutes),
-                                                 page_size=page_size)
+metrics_request_info = prepare_dynatrace_params(V2Endpoints.METRICS,
+                                                dynatrace_tenant,
+                                                dynatrace_api_token,
+                                                time=get_from_time(minutes),
+                                                page_size=page_size)
 
 metrics = get_dynatrace_data(session, metrics_request_info)
 metric_ids = []
@@ -198,15 +198,15 @@ metrics_params = {
 
 for metric_id in metric_ids:
     metrics_params['metricSelector'] = metric_id
-    metrics_request_info = prepare_dynatrace_request(V2Endpoints.METRICS_QUERY,
-                                                     dynatrace_tenant,
-                                                     dynatrace_api_token,
-                                                     params=metrics_params)
+    metrics_request_info = prepare_dynatrace_params(V2Endpoints.METRICS_QUERY,
+                                                    dynatrace_tenant,
+                                                    dynatrace_api_token,
+                                                    params=metrics_params)
 
-    metric_descriptors_request_info = prepare_dynatrace_request(V2Endpoints.METRIC_DESCRIPTORS,
-                                                                dynatrace_tenant,
-                                                                dynatrace_api_token,
-                                                                params={'metricSelector': metric_id})
+    metric_descriptors_request_info = prepare_dynatrace_params(V2Endpoints.METRIC_DESCRIPTORS,
+                                                               dynatrace_tenant,
+                                                               dynatrace_api_token,
+                                                               params={'metricSelector': metric_id})
 
     metric_descriptors_request_info = get_dynatrace_data(session, metric_descriptors_request_info)
 
