@@ -10,7 +10,8 @@ import util
 import requests
 import itertools
 import re
-from dynatrace_types import *
+from dynatrace_types_37 import *
+# from dynatrace_types import *
 
 
 def prepare_and_get_data(api_type, tenant, token, params, session, helper):
@@ -25,7 +26,7 @@ def prepare_and_get_data(api_type, tenant, token, params, session, helper):
     return data
 
 
-def parse_series_collection(series_collection: MetricSeriesCollection) -> list[MetricSeries]:
+def parse_series_collection(series_collection: MetricSeriesCollection) -> List[MetricSeries]:
     """Parse a MetricSeriesCollection into a list of MetricSeries.
 
     Args:
@@ -37,7 +38,7 @@ def parse_series_collection(series_collection: MetricSeriesCollection) -> list[M
     return series_collection['data']
 
 
-def parse_series(series: MetricSeries) -> list[DataPoint]:
+def parse_series(series: MetricSeries) -> List[DataPoint]:
     """Parse a MetricSeries into a list of DataPoints.
 
     Args:
@@ -124,7 +125,7 @@ def get_dynatrace_metrics_descriptors(tenant, api_token, metric_selector, time=N
     return response.json()
 
 
-def parse_metric_selector(metric_selectors: list[str]) -> MetricSelector:
+def parse_metric_selector(metric_selectors: List[str]) -> MetricSelector:
     """Parse a list of metric selectors into a string for the API call.
 
     Args:
@@ -149,7 +150,7 @@ def parse_metric_selectors_from_file(file_path: Path):
     return parse_metric_selectors_text_area(file_content)
 
 
-def parse_metric_selectors_text_area(textarea_input: str) -> list[MetricSelector]:
+def parse_metric_selectors_text_area(textarea_input: str) -> List[MetricSelector]:
     """Scan line by line, if there is leading whitespace or tabs, it's a continuation of the previous line.
     Strip them and append them to the previous selector.
     @param textarea_input: The text area input

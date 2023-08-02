@@ -1027,6 +1027,10 @@
                                         "label": "Entities"
                                     },
                                     {
+                                        "value": "ENTITIES,ENTITY",
+                                        "label": "Entity Details"
+                                    },
+                                    {
                                         "value": "EVENTS",
                                         "label": "Events"
                                     },
@@ -1049,6 +1053,10 @@
                                     {
                                         "value": "SYNTHETIC_TESTS_ON_DEMAND",
                                         "label": "On Demand Executions"
+                                    },
+                                    {
+                                        "value": "SYNTHETIC_MONITORS_HTTP,SYNTHETIC_MONITOR_HTTP",
+                                        "label": "Synthetic Monitor Details"
                                     }
                                 ]
                             }

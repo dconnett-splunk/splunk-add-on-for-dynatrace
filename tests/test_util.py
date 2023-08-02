@@ -18,8 +18,8 @@ from requests.models import Response, PreparedRequest, Request
 import package.bin.metrics_util as dt_metrics
 import package.bin.util as util
 import pickle_test_inputs
-from dynatrace_types import *
 from package.bin.util import Endpoint
+from dynatrace_types import *
 
 version = '2.0.8'
 script_location: Path = Path(__file__).resolve()
