@@ -2,7 +2,7 @@
     "meta": {
         "name": "Splunk_TA_Dynatrace",
         "displayName": "Dynatrace Add-on for Splunk",
-        "version": "2.0.7",
+        "version": "2.1.0",
         "restRoot": "Splunk_TA_Dynatrace",
         "schemaVersion": "2.0.0"
     },
@@ -1023,27 +1023,31 @@
                                 "disableSearch": true,
                                 "autoCompleteFields": [
                                     {
-                                        "value": "entities",
+                                        "value": "ENTITIES",
                                         "label": "Entities"
                                     },
                                     {
-                                        "value": "events",
+                                        "value": "EVENTS",
                                         "label": "Events"
                                     },
                                     {
-                                        "value": "problems",
+                                        "value": "PROBLEMS",
                                         "label": "Problems"
                                     },
                                     {
-                                        "value": "synthetic_locations",
+                                        "value": "PROBLEMS,PROBLEM",
+                                        "label": "Problem Details"
+                                    },
+                                    {
+                                        "value": "SYNTHETIC_LOCATIONS",
                                         "label": "Synthetic Locations"
                                     },
                                     {
-                                        "value": "synthetic_monitors_http",
+                                        "value": "SYNTHETIC_MONITORS_HTTP",
                                         "label": "Synthetic Monitors"
                                     },
                                     {
-                                        "value": "synthetic_tests_on_demand",
+                                        "value": "SYNTHETIC_TESTS_ON_DEMAND",
                                         "label": "On Demand Executions"
                                     }
                                 ]

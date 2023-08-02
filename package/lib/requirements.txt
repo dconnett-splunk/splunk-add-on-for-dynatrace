@@ -6,3 +6,4 @@ splunktaucclib==6.0.7
 #json
 #requests
 urllib3<2
+typing_extensions

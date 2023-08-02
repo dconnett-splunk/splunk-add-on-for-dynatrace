@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import json
-import typing
-from typing import TypedDict, NewType, Dict, List, Any, Union, Set, Type
+from typing_extensions import TypedDict, NewType
+from typing import Dict, List, Any, Union, Set
 from datetime import date
 
 
@@ -42,6 +42,7 @@ MetricId = NewType('MetricId', str)
 LocationId = NewType('locationId', str)
 ExecutionId = NewType('executionId', str)
 PathParam = NewType('PathParam', str)
+
 
 class Rollup(TypedDict):
     parameter: float
@@ -148,6 +149,25 @@ class SyntheticLocation(TypedDict):
     stage: str
     status: str
     type: str
+
+
+class SyntheticOnDemandExecution(TypedDict):
+    batchId: str
+    executionId: str
+    executionStage: str
+    schedulingTimestamp: int
+    executionTimestamp: int
+    dataDeliveryTimestamp: int
+    monitorId: str
+    locationId: str
+    nextExecutionId: int
+    userId: str
+    metadata: dict
+    source: str
+    processingMode: str
+    customizedScript: dict
+    simpleResults: dict
+    fullResults: dict
 
 
 class Problem(TypedDict):

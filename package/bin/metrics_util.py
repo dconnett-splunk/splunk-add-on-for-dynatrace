@@ -25,6 +25,30 @@ def prepare_and_get_data(api_type, tenant, token, params, session, helper):
     return data
 
 
+def parse_series_collection(series_collection: MetricSeriesCollection) -> list[MetricSeries]:
+    """Parse a MetricSeriesCollection into a list of MetricSeries.
+
+    Args:
+        series_collection (MetricSeriesCollection): A MetricSeriesCollection.
+
+    Returns:
+        list[MetricSeries]: A list of MetricSeries.
+    """
+    return series_collection['data']
+
+
+def parse_series(series: MetricSeries) -> list[DataPoint]:
+    """Parse a MetricSeries into a list of DataPoints.
+
+    Args:
+        series (MetricSeries): A MetricSeries.
+
+    Returns:
+        list[DataPoint]: A list of DataPoints.
+    """
+    return series['data']
+
+
 def flatten_and_zip_timeseries(timeseries_data: MetricData):
     series_collection: MetricSeriesCollection
     series: MetricSeries
