@@ -28,7 +28,7 @@ import requests
 import util
 from util import Endpoint
 from pathlib import Path
-from dynatrace_types import *
+from dynatrace_types_37 import *
 
 
 
@@ -95,7 +95,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
 
         endpoint_string = helper.get_arg("dynatrace_apiv2_endpoint")
         if ',' in endpoint_string:
-            endpoint: list[Endpoint] = [Endpoint[val.strip()] for val in endpoint_string.split(",")]
+            endpoint: List[Endpoint] = [Endpoint[val.strip()] for val in endpoint_string.split(",")]
         else:
             endpoint: Endpoint = Endpoint[endpoint_string]
         endpoint: Endpoint = Endpoint.get_endpoint(helper.get_arg("dynatrace_apiv2_endpoint"))

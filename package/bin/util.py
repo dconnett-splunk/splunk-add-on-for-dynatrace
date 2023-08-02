@@ -7,7 +7,6 @@ from pathlib import Path
 import shutil
 import filecmp
 import math
-from dynatrace_types import *
 import requests
 from enum import Enum
 from dataclasses import dataclass
@@ -15,6 +14,10 @@ from urllib.parse import quote_plus
 from requests import Response, Request, PreparedRequest, Session
 import re
 import string
+from dynatrace_types_37 import *
+# from dynatrace_types import *
+import json
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -552,7 +555,7 @@ def parse_dynatrace_response(response: json, endpoint: Endpoint):
     elif endpoint == Endpoint.SYNTHETIC_MONITOR_HTTP_V2 and isinstance(response, dict):
         return MonitorExecutionResults(**response)
     elif endpoint == Endpoint.SYNTHETIC_MONITORS_HTTP_V2:
-        return list[SyntheticOnDemandExecution](response)
+        return List[Dict](response)
     elif endpoint == Endpoint.METRIC_DESCRIPTORS and isinstance(response, dict):
         return MetricDescriptor(**response)
     elif endpoint == Endpoint.ENTITY and isinstance(response, dict):
