@@ -1,34 +1,28 @@
-import pathlib
-from unittest import mock
-from unittest.mock import patch
-import pdb
-import re
+import json
 import os
-from urllib.parse import quote
+import pickle
+import re
+import unittest
+from datetime import datetime, timedelta
+from pathlib import Path
+from pprint import pprint
+from unittest.mock import patch
+from urllib import parse
 
 import requests
-from requests.models import Response, PreparedRequest, Request
-from requests import Session
-import package.bin.util as util
-import unittest
-from dynatrace_types import *
-from package.bin.util import V2Endpoints
-import pickle
-import json
 from pygments import highlight
-from pygments.lexers import JsonLexer, find_lexer_class_by_name
 from pygments.formatters import TerminalFormatter
-from colorama import init
-from datetime import datetime, timedelta
-from urllib import parse
-from urllib3.util import Url
+from pygments.lexers import JsonLexer
+from requests.models import Response, PreparedRequest, Request
+
 import package.bin.metrics_util as dt_metrics
-from pathlib import Path
+import package.bin.util as util
 import pickle_test_inputs
-from pprint import pprint
+from dynatrace_types import *
+from package.bin.util import Endpoint
 
 version = '2.0.8'
-script_location: Path = pathlib.Path(__file__).resolve()
+script_location: Path = Path(__file__).resolve()
 
 
 def parse_open_api_spec(oas_spec: Path):
@@ -41,16 +35,17 @@ def parse_open_api_spec(oas_spec: Path):
 def get_example_from_spec(spec, path, method='get', response_code='200'):
     """Get example from the OpenAPI spec for a certain path, method and response code"""
     try:
-        response_content_type = list(spec.get('paths', {}).get(path, {}).get(method, {}).get('responses', {}).get(response_code, {}).get('content', {}))[0]
-        schema_ref = spec.get('paths', {}).get(path, {}).get(method, {}).get('responses', {}).get(response_code, {}).get('content', {}).get(response_content_type, {}).get('schema', {}).get('$ref', '')
+        response_content_type = list(
+            spec.get('paths', {}).get(path, {}).get(method, {}).get('responses', {}).get(response_code, {}).get(
+                'content', {}))[0]
+        schema_ref = spec.get('paths', {}).get(path, {}).get(method, {}).get('responses', {}).get(response_code,
+                                                                                                  {}).get('content',
+                                                                                                          {}).get(
+            response_content_type, {}).get('schema', {}).get('$ref', '')
         schema_name = schema_ref.split('/')[-1]
         return spec.get('components', {}).get('schemas', {}).get(schema_name, {}).get('example', None)
     except IndexError:
         return None
-
-
-
-
 
 
 def request_info_generator():
@@ -60,7 +55,7 @@ def request_info_generator():
     tenant = "http://localhost:12345"
     api_token = "test_token"
 
-    for enum in V2Endpoints:
+    for enum in Endpoint:
         endpoint = enum
         # Expected url after formatting
         params = {}
@@ -68,7 +63,8 @@ def request_info_generator():
         print(f'request_info_generator() endpoint: {endpoint}')
         print(f'request_info_generator() expected_url: {expected_url}')
         print(f'request_info_generator() endpoint.url_path_param: {endpoint.url_path_param}')
-        extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST", "SYNTHETIC_TEST_STEP"]
+        extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST",
+                        "SYNTHETIC_TEST_STEP"]
 
         if endpoint.url_path_param:
             params = Params({endpoint.url_path_param: "Computer1234"})
@@ -111,8 +107,10 @@ def pickled_test_inputs():
 
 def get_endpoint_info(url):
     """Match a URL to an EndpointInfo object."""
-    for endpoint in V2Endpoints:
-        endpoint_url_regex = re.escape(endpoint.value.url).replace(r"\{id\}", r"[^/]+")
+    for endpoint in Endpoint:
+        endpoint_url_regex = re.escape(endpoint.value.url)
+        # Replace all strings enclosed in {} with a regex that matches any characters excluding the /
+        endpoint_url_regex = re.sub(r'\\{.*?\\}', r"[^/]+", endpoint_url_regex)
         # Ensure endpoint.url is at the end of url
         endpoint_url_regex = r".*{}$".format(endpoint_url_regex)
         if re.search(endpoint_url_regex, url):
@@ -162,7 +160,7 @@ class TestUtil(unittest.TestCase):
         self.spec = parse_open_api_spec(Path('dynatrace_oas_spec3.json'))
 
     def test_format_url_and_pop_params(self):
-        endpoint = V2Endpoints.ENTITY
+        endpoint = Endpoint.ENTITY
         url = URL("https://example.com/api/v2/{entityId}")
         params = Params({"entityId": "1234", "name": "test"})
 
@@ -177,7 +175,6 @@ class TestUtil(unittest.TestCase):
 
         self.assertEqual(expected_url, result_url)
         self.assertEqual(expected_params, result_params)
-
 
     @staticmethod
     def generate_dynatrace_params():
@@ -199,7 +196,8 @@ class TestUtil(unittest.TestCase):
             print(f'generated params: {params}')
             print(f'extra_params: {extra_params}')
 
-            result = util.prepare_dynatrace_params(base_url=tenant, params=params, endpoint=endpoint_outer, extra_params=extra_params)
+            result = util.prepare_dynatrace_params(base_url=tenant, params=params, endpoint=endpoint_outer,
+                                                   extra_params=extra_params)
             print(f'generate_dynatrace_params() result: {result}')
             for url, prepared_params, endpoint in result:
                 print('-' * 100)
@@ -211,7 +209,6 @@ class TestUtil(unittest.TestCase):
                 print(f"expected_url: {expected_url}")
 
                 yield expected_url, url, prepared_params, endpoint
-
 
     def test_prepare_dynatrace_params(self):
         print()
@@ -242,16 +239,12 @@ class TestUtil(unittest.TestCase):
 
                     settings = session.merge_environment_settings(prepared_request.url, {}, None, None, None)
 
-
                     print(f"prepared_request: {prepared_request}")
 
                     # Create a mock response
                     mock_response = Response()
                     mock_response.status_code = 200
                     mock_response._content = b'{"key": "value"}'
-
-
-
 
     def test_parse_dynatrace_response(self):
         file_paths = sorted(pickled_test_inputs())
@@ -300,16 +293,14 @@ class TestUtil(unittest.TestCase):
 
                 print(f"result: {result}")
 
-
                 stripped_url = endpoint.url.replace("/api/v2", "", 1)
                 print(f'endpoint url: {stripped_url}')
                 expected_result = get_example_from_spec(self.spec, stripped_url)
                 self.assertEqual(expected_result, expected_result)
 
-
     def test_merge_endpoint_params_synthetic(self):
         print()
-        endpoint = V2Endpoints.SYNTHETIC_TESTS_ON_DEMAND
+        endpoint = Endpoint.SYNTHETIC_TESTS_ON_DEMAND
         time = str(util.get_from_time_utc())
         params = Params({'time': time})
         expected_params = {'schedulingFrom': time}
@@ -320,19 +311,21 @@ class TestUtil(unittest.TestCase):
 
     def test_merge_endpoint_params_metrics(self):
         print()
-        endpoint = V2Endpoints.METRICS
+        endpoint = Endpoint.METRICS
         time = str(util.get_from_time_utc())
         params = Params({'time': time, 'pageSize': '10', 'metricKey': 'builtin:host.cpu.usage:merge(0):avg'})
-        expected_params = {'fields': 'unit,aggregationTypes', 'writtenSince': time, 'pageSize': '10', 'metricKey': 'builtin:host.cpu.usage:merge(0):avg'}
+        expected_params = {'fields': 'unit,aggregationTypes', 'writtenSince': time, 'pageSize': '10',
+                           'metricKey': 'builtin:host.cpu.usage:merge(0):avg'}
         result = util.format_params(endpoint, params)
         print(f'result: {result}')
         self.assertEqual(expected_params, result)
 
     def test_merge_endpoint_params_entities(self):
         print()
-        extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST","SYNTHETIC_TEST_STEP"]
+        extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST",
+                        "SYNTHETIC_TEST_STEP"]
         time = str(util.get_from_time_utc())
-        endpoint = V2Endpoints.ENTITIES
+        endpoint = Endpoint.ENTITIES
         params = Params({'time': time, 'pageSize': '10', 'entitySelector': 'HOST'})
         expected_params = {'time': time, 'pageSize': '10', 'entitySelector': 'type(\"HOST\")'}
         result = util.format_params(endpoint, params)
@@ -341,7 +334,7 @@ class TestUtil(unittest.TestCase):
 
     def test_build_url(self):
         print()
-        endpoint = V2Endpoints.METRIC_DESCRIPTORS
+        endpoint = Endpoint.METRIC_DESCRIPTORS
         tenant = Tenant("https://fbk23429.live.dynatrace.com")
         params = Params({'metricKey': 'builtin:host.cpu.usage:merge(0):avg'})
         print(f'params: {params}')
@@ -350,10 +343,146 @@ class TestUtil(unittest.TestCase):
         print(f'result: {result}')
         self.assertEqual(expected_url, result)
 
+    # def test_join_data_live(self):
+    #     print()
+    #     endpoint = Endpoints.ENTITIES
+    #     secrets = util.parse_secrets_env()
+    #     tenant = secrets['dynatrace_tenant']
+    #     api_token = secrets['dynatrace_api_token']
+    #     params = Params({'time': util.get_from_time()})
+    #     extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST",
+    #                     "SYNTHETIC_TEST_STEP"]
+    #
+    #     prepared_params_list = util.prepare_dynatrace_params(tenant, params, endpoint, extra_params)
+    #     prepared_headers = util.prepare_dynatrace_headers(api_token)
+    #
+    #     # Entities
+    #     #TODO Refactor this to use execute_session.
+    #     print('Test entities')
+    #     with requests.Session() as session:
+    #         session.headers.update(prepared_headers)
+    #         print()
+    #         print(f"headers: {prepared_headers}")
+    #         print(f"params: {params}")
+    #         print(f"endpoint: {endpoint}")
+    #         result: EntitiesList = util.get_dynatrace_data(session, prepared_params_list)
+    #         for entity in result:
+    #             print(f'entity: {entity}')
+    #             entity_id = entity['entityId']
+    #             params = Params({'time': util.get_from_time(),
+    #                              'entityId': entity_id})
+    #             extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE",
+    #                             "SYNTHETIC_TEST", "SYNTHETIC_TEST_STEP"]
+    #             endpoint = Endpoints.ENTITY
+    #             prepared_params_list = util.prepare_dynatrace_params(tenant, params, endpoint, extra_params)
+    #             result2 = util.get_dynatrace_data(session, prepared_params_list)
+    #             print(f'result2: {result2}')
+    #
+    #     with requests.Session() as session:
+    #         session.headers.update(prepared_headers)
+    #         # Problems
+    #         print('Test problems')
+    #         collection_interval = str(util.get_from_time())
+    #         endpoint2 = Endpoints.PROBLEMS
+    #         params2: Params = Params({'time': collection_interval})
+    #         prepared_params_list2 = util.prepare_dynatrace_params(tenant, params2, endpoint2)
+    #         result3 = util.get_dynatrace_data(session, prepared_params_list2)
+    #         print(f'result3: {result3}')
+    #
+    #         for problem in result3:
+    #             problem_id = problem['problemId']
+    #             endpoint3 = Endpoints.PROBLEM
+    #             params3 = Params({'time': util.get_from_time(40400),
+    #                               'problemId': problem_id})
+    #             prepared_params_list3 = util.prepare_dynatrace_params(tenant, params3, endpoint3)
+    #             result4 = util.get_dynatrace_data(session, prepared_params_list3)
+    #             print(f'result4: {result4}')
+    #
+    #             self.assertEqual(result, result)
+
+    def test_execute_session_entities(self):
+        print()
+        endpoint = [Endpoint.ENTITIES, Endpoint.ENTITY]
+        secrets = util.parse_secrets_env()
+        tenant = secrets['dynatrace_tenant']
+        api_token = secrets['dynatrace_api_token']
+        params = Params({'time': util.get_from_time()})
+        extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE",
+                        "SYNTHETIC_TEST",
+                        "SYNTHETIC_TEST_STEP"]
+
+        result = util.execute_session(endpoint, tenant, api_token, params, extra_params)
+        for entity in result:
+            print(f'entity: {entity}')
+
+
+
+    def test_execute_session_problems(self):
+        print()
+        endpoint = Endpoint.PROBLEMS
+        secrets = util.parse_secrets_env()
+        tenant = secrets['dynatrace_tenant']
+        api_token = secrets['dynatrace_api_token']
+        params = Params({'time': util.get_from_time()})
+
+        result = util.execute_session(endpoint, tenant, api_token, params)
+        for problem in result:
+            print(f'problem: {problem}')
+
+    def test_execute_session_synthetic(self):
+        print()
+        endpoint = [Endpoint.SYNTHETIC_MONITORS_HTTP, Endpoint.SYNTHETIC_MONITOR_HTTP]
+        secrets = util.parse_secrets_env()
+        tenant = secrets['dynatrace_tenant']
+        api_token = secrets['dynatrace_api_token']
+        params = Params({'time': util.get_from_time()})
+
+        result = util.execute_session(endpoint, tenant, api_token, params)
+        for synthetic in result:
+            print(f'synthetic: {synthetic}')
+
+
+    def test_execute_session_syntheticv2(self):
+        print()
+        endpoint = Endpoint.SYNTHETIC_MONITORS_HTTP_V2
+        secrets = util.parse_secrets_env()
+        tenant = secrets['dynatrace_tenant']
+        api_token = secrets['dynatrace_api_token']
+        params = Params({'time': util.get_from_time()})
+
+        result = util.execute_session(endpoint, tenant, api_token, params)
+        for synthetic in result:
+            print(f'synthetic: {synthetic}')
+
+    def test_synthetic_locations(self):
+        print()
+        endpoint = Endpoint.SYNTHETIC_LOCATIONS
+        secrets = util.parse_secrets_env()
+        tenant = secrets['dynatrace_tenant']
+        api_token = secrets['dynatrace_api_token']
+        params = Params({'time': util.get_from_time()})
+
+        result = util.execute_session(endpoint, tenant, api_token, params)
+        for synthetic in result:
+            print(f'synthetic: {synthetic}')
+
+    def test_events(self):
+        print()
+        endpoint = Endpoint.EVENTS
+        secrets = util.parse_secrets_env()
+        tenant = secrets['dynatrace_tenant']
+        api_token = secrets['dynatrace_api_token']
+        params = Params({'time': util.get_from_time()})
+
+        result = util.execute_session(endpoint, tenant, api_token, params)
+        for event in result:
+            print(f'event: {event}')
+
 
 metric_selector = 'builtin:host.cpu.usage:merge(0):avg'
 metric_selectors_from_file = """builtin:host.cpu.usage:max
-builtin:host.cpu.usage:fold(max),builtin:host.cpu.usage:splitBy()
+builtin:host.cpu.usage:fold(max)
+builtin:host.cpu.usage:splitBy()
 builtin:kubernetes.pods
   :filter(eq("k8s.cluster.name","preproduction"))
   :splitBy("dt.entity.cloud_application")
@@ -365,6 +494,10 @@ metric_selector_list = ['builtin:host.cpu.usage:max',
                         'builtin:kubernetes.pods:filter(eq("k8s.cluster.name","preproduction")):splitBy("dt.entity.cloud_application"):max']
 
 metric_selector_file_path = 'metric_selectors.txt'
+
+
+# NEW IDEA!
+
 
 class TestMetricsUtil(unittest.TestCase):
     def test_parse_metric_selectors(self):
@@ -382,9 +515,10 @@ class TestMetricsUtil(unittest.TestCase):
         print(f'parsed_metric_selectors_from_file:\n{json.dumps(parsed_metric_selectors_from_file, indent=4)}')
 
     def test_parse_metric_selectors_text_area(self):
-        parsed_metric_selectors_text_area = dt_metrics.parse_metric_selectors_text_area(metric_selectors_from_file)
-        self.assertEqual(['builtin:host.cpu.usage:merge(0):avg'], dt_metrics.parse_metric_selectors_text_area(metric_selector))
         print()
+        parsed_metric_selectors_text_area = dt_metrics.parse_metric_selectors_text_area(metric_selectors_from_file)
+        self.assertEqual(['builtin:host.cpu.usage:merge(0):avg'],
+                         dt_metrics.parse_metric_selectors_text_area(metric_selector))
         parsed_metric_selectors_text_area = dt_metrics.parse_metric_selectors_text_area(metric_selector)
         # Use json.dumps for pretty-printing
         print(f'parse_metric_selectors_text_area:\n{json.dumps(parsed_metric_selectors_text_area, indent=4)}')
@@ -412,8 +546,7 @@ class TestMetricsUtil(unittest.TestCase):
 
     def test_metric_request(self):
         print()
-        path_from_package = Path('package/tests/pickle_requests')
-        script_location: Path = pathlib.Path(__file__).resolve()
+        script_location: Path = Path(__file__).resolve()
 
         # Calculate the absolute path of the directory containing the pickle files
         # This assumes that the pickle directory is in the same directory as the current script
@@ -421,30 +554,46 @@ class TestMetricsUtil(unittest.TestCase):
         prefix: str = "response_https__fbk23429livedynatracecom_api_v2_"
         file_name: str = "metrics_1687888114.pkl"
 
-        metrics_request = pickle.load(open(Path(pickle_path, prefix + file_name), 'rb'))
-        metrics_response = pickle.load(open(Path(pickle_path, prefix + file_name), 'rb'))
         metrics_response: MetricDescriptorCollection = pickle.load(open(Path(pickle_path, prefix + file_name), 'rb'))
 
         # Metric descriptor returned from call to /api/v2/metrics/{metricKey}
-        metric_descriptor_request = pickle.load(open(Path(pickle_path, "response_https__fbk23429livedynatracecom_api_v2_metrics_builtinbillingddulogbyDescription_1687888114.pkl"), 'rb'))
-        metric_descriptor_response = pickle.load(open(Path(pickle_path, "response_https__fbk23429livedynatracecom_api_v2_metrics_builtinbillingddulogbyDescription_1687888114.pkl"), 'rb'))
+        metric_descriptor_request = pickle.load(open(Path(pickle_path,
+                                                          "response_https__fbk23429livedynatracecom_api_v2_metrics_builtinbillingddulogbyDescription_1687888114.pkl"),
+                                                     'rb'))
+        metric_descriptor_response = pickle.load(open(Path(pickle_path,
+                                                           "response_https__fbk23429livedynatracecom_api_v2_metrics_builtinbillingddulogbyDescription_1687888114.pkl"),
+                                                      'rb'))
 
-        metrics_query_request = pickle.load(open(Path(pickle_path, prefix + "metrics_query_1687888114.pkl"), 'rb'))
-        metrics_query_response = pickle.load(open(Path(pickle_path, prefix + "metrics_query_1687888114.pkl"), 'rb'))
+        expected_json = [{'aggregationTypes': ['auto', 'value'],
+                          'metricId': 'builtin:billing.ddu.events.byDescription',
+                          'unit': 'Unspecified'},
+                         {'aggregationTypes': ['auto', 'value'],
+                          'metricId': 'builtin:billing.ddu.events.byEntity',
+                          'unit': 'Unspecified'},
+                         {'aggregationTypes': ['auto', 'value'],
+                          'metricId': 'builtin:billing.ddu.events.total',
+                          'unit': 'Unspecified'},
+                         {'aggregationTypes': ['auto', 'value'],
+                          'metricId': 'builtin:billing.ddu.log.byDescription',
+                          'unit': 'Unspecified'}]
+        parsed_response = util.parse_dynatrace_response(metrics_response, Endpoint.METRICS)
+        self.assertEqual(expected_json, parsed_response)
 
-        # Parse metrics response
-        pprint(util.parse_dynatrace_response(metrics_response, V2Endpoints.METRICS))
+        metric_id = pickle.load(open(Path(pickle_path,
+                                          "response_https__fbk23429livedynatracecom_api_v2_metrics_builtinbillingddulogbyDescription_1687888114.pkl"),
+                                     'rb'))
+        pprint(util.parse_dynatrace_response(metric_id, Endpoint.METRICS_QUERY))
 
-        metric_id = pickle.load(open(Path(pickle_path, "response_https__fbk23429livedynatracecom_api_v2_metrics_builtinbillingddulogbyDescription_1687888114.pkl"), 'rb'))
-        pprint(util.parse_dynatrace_response(metric_id, V2Endpoints.METRICS_QUERY))
-
-        raw_metrics = pickle.load(open(Path(pickle_path, "response_https__fbk23429livedynatracecom_api_v2_metrics_query_1687888114.pkl"), 'rb'))
+        raw_metrics = pickle.load(
+            open(Path(pickle_path, "response_https__fbk23429livedynatracecom_api_v2_metrics_query_1687888114.pkl"),
+                 'rb'))
 
     def test_process_timeseries_data(self):
-        # TODO: Fix this test
+        time_series_data = []
+        parsed_data = {}
         for file_name, file_type, timestamp, url, data in sorted(pickled_test_inputs()):
             endpoint = get_endpoint_info(url)
-            if endpoint == V2Endpoints.METRICS_QUERY and file_type == "response":
+            if endpoint == Endpoint.METRICS_QUERY and file_type == "response":
                 print()
                 print(f'file_name: {file_name}')
                 print(f'file_type: {file_type}')
@@ -455,20 +604,40 @@ class TestMetricsUtil(unittest.TestCase):
                 print(f'parsed_data: {parsed_data}')
                 process_timeseries_data = [item for item in dt_metrics.flatten_and_zip_timeseries(parsed_data)]
                 for data_point in process_timeseries_data:
-                    print(f'data_point: {data_point}')
+                    time_series_data.append(data_point)
 
-            assert True
+                series_count = parsed_data['totalCount']
+                print(f'time_series_data: {time_series_data}')
+                # Get the number of unique descriptions in the list of dicts
+                series_in_list = set([item.get('Description') for item in time_series_data])
+                series_in_list_count = len(series_in_list)
+                print(f'series_count: {series_count}')
+                print(f'series_in_list: {series_in_list}')
+                print(f'len(series_in_list): {len(series_in_list)}')
+
+                if series_count != series_in_list_count:
+                    for item in time_series_data:
+                        if item.get('Description') == 'None':
+                            print(f'item: {item}')
+
+                self.assertEqual(series_count, series_in_list_count)
 
     def test_build_event_data(self):
+        print()
         metric_descriptor: MetricDescriptor
         opt_dynatrace_tenant: Tenant
         metric_id: MetricId
         metric_selector_used: MetricSelector
         tenant: Tenant
+        event_data: list[DataPoint] = []
+        example_data = {'Description': 'Business events Query', 'timestamp': 1690295340000, 'value': None,
+                        'resolution': '1m', 'metric_name': 'builtin:billing.ddu.events.byDescription',
+                        'dynatraceTenant': 'https://jlw10381.live.dynatrace.com',
+                        'metric_selector_used': 'builtin:billing.ddu.events.byDescription', 'unit': 'Unspecified'}
 
         for file_name, file_type, timestamp, url, data in sorted(pickled_test_inputs()):
             endpoint = get_endpoint_info(url)
-            if endpoint == V2Endpoints.METRIC_DESCRIPTORS and file_type == "response":
+            if endpoint == Endpoint.METRIC_DESCRIPTORS and file_type == "response":
                 metric_descriptor = util.parse_dynatrace_response(data.json(), endpoint)
                 # This is a hack to get the metric_selector used in the request
                 # This is only needed for customer convenience, correlating which Splunk input created the  ouput data
@@ -476,9 +645,14 @@ class TestMetricsUtil(unittest.TestCase):
                 # Get the first three parts of the URL, which is the tenant
                 tenant = Tenant('/'.join(url.split('/')[:3]))
                 metric_id = metric_descriptor['metricId']
-                #TODO: Find metric_selector
+                print(f'metric_descriptor: {metric_descriptor}')
+                print(f'metric_id: {metric_id}')
+                print(f'metric_selector_used: {metric_selector_used}')
+                print(f'tenant: {tenant}')
 
-            if endpoint == V2Endpoints.METRICS_QUERY and file_type == "response":
+                # TODO: Find metric_selector
+
+            if endpoint == Endpoint.METRICS_QUERY and file_type == "response":
                 print()
                 print(f'file_name: {file_name}')
                 print(f'file_type: {file_type}')
@@ -489,60 +663,54 @@ class TestMetricsUtil(unittest.TestCase):
                 print(f'parsed_data: {parsed_data}')
                 process_timeseries_data = [item for item in dt_metrics.flatten_and_zip_timeseries(parsed_data)]
                 for data_point in process_timeseries_data:
-                    print(f'data_point: {data_point}')
-                    event_data = dt_metrics.build_event_data(data_point, metric_descriptor, tenant, metric_selector_used)
-                    print(f'event_data: {event_data}')
+                    point = dt_metrics.build_event_data(data_point, metric_descriptor, tenant,
+                                                             metric_selector_used)
+                    event_data.append(point)
+                    for key in example_data:
+                        self.assertIn(key, example_data.keys())
 
-            assert True
-
-    def test_join_data_live(self):
-        endpoint = V2Endpoints.ENTITIES
+    def test_metric_execute_session(self):
+        print()
+        metric_selectors: list[MetricSelector] = dt_metrics.parse_metric_selectors_text_area(metric_selectors_from_file)
         secrets = util.parse_secrets_env()
+        time = util.get_from_time(60)
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
-        params = Params({'time': util.get_from_time()})
-        extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST", "SYNTHETIC_TEST_STEP"]
 
-        prepared_params_list = util.prepare_dynatrace_params(tenant, params, endpoint, extra_params)
-        prepared_headers = util.prepare_dynatrace_headers(api_token)
+        metric_descriptor_list: list[MetricDescriptorCollection] = util.execute_session(Endpoint.METRICS, tenant, api_token, Params({}), metric_selectors)
 
-        with requests.Session() as session:
-            session.headers.update(prepared_headers)
-            print()
-            print(f"headers: {prepared_headers}")
-            print(f"params: {params}")
-            print(f"endpoint: {endpoint}")
-            result: EntitiesList = util.get_dynatrace_data(session, prepared_params_list)
-            for entity in result:
-                entity_id = entity['entityId']
-                params = Params({'time': util.get_from_time(),
-                                 'entityId': entity_id})
-                extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE", "SYNTHETIC_TEST", "SYNTHETIC_TEST_STEP"]
-                endpoint = V2Endpoints.ENTITY
-                prepared_params_list = util.prepare_dynatrace_params(tenant, params, endpoint, extra_params)
-                result2 = util.get_dynatrace_data(session, prepared_params_list)
-                print(f'result2: {result2}')
+        metric_descriptor_mapping = {}
+        for metric_descriptor in metric_descriptor_list:
+            metrics = metric_descriptor.get('metrics')
+            for metric in metrics:
+                metric_id = metric.get('metricId')
+                unit = metric.get('unit')
+                aggregation_types = metric.get('aggregationTypes')
+                metric_descriptor_mapping[metric_id] = (unit, aggregation_types)
 
-        # Problems
-        endpoint2 = V2Endpoints.PROBLEMS
-        params2 = Params({'time': util.get_from_time()})
-        prepared_params_list2 = util.prepare_dynatrace_params(tenant, params2, endpoint2)
-        result3 = util.get_dynatrace_data(session, prepared_params_list2)
-        print(f'result3: {result3}')
+        params = {'time': time}
 
-        for problem in result3:
-            problem_id = problem['problemId']
-            endpoint3 = V2Endpoints.PROBLEM
-            params3 = Params({'time': util.get_from_time(14400),
-                             'problemId': problem_id})
-            prepared_params_list3 = util.prepare_dynatrace_params(tenant, params3, endpoint3)
-            result4 = util.get_dynatrace_data(session, prepared_params_list3)
-            print(f'result4: {result4}')
+        metric_data_list: list[MetricData] = list(util.execute_session(Endpoint.METRICS_QUERY, tenant, api_token, params, metric_selectors))
+        print(f'metric_data_list: {metric_data_list}')
 
-            self.assertEqual(result, result)  # replace ... with the expected result
-
-        # TODO Test Problem detail lookup
-
+        for metric_data in metric_data_list:
+            result = metric_data.get('result')
+            resolution = metric_data.get('resolution')
+            for metric_series_collection in result:
+                metric_id = metric_series_collection.get('metricId')
+                data = metric_series_collection.get('data')
+                unit, aggregation_types = metric_descriptor_mapping.get(metric_id, (None, None))
+                for metric_series in data:
+                    for timestamp, value in zip(metric_series.get('timestamps'), metric_series.get('values')):
+                        print({
+                            'timestamp': timestamp,
+                            'value': value,
+                            'metric_id': metric_id,
+                            'unit': unit,
+                            'aggregation_types': aggregation_types,
+                            'dynatraceTenant': tenant,
+                            'resolution': resolution
+                        })
 
 
 if __name__ == '__main__':

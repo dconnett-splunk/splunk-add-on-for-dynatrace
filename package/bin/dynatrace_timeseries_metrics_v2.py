@@ -27,9 +27,10 @@ from solnlib.modular_input import checkpointer
 from splunktaucclib.modinput_wrapper import base_modinput  as base_mi 
 import requests
 import util
+from util import Endpoint
 from tempfile import NamedTemporaryFile
 import metrics_util
-
+from dynatrace_types import MetricData, MetricDescriptorCollection, Params
 
 
 
@@ -112,57 +113,58 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
 
         dynatrace_account_input = helper.get_arg("dynatrace_account")
         dynatrace_tenant_input = dynatrace_account_input["username"]
-        opt_dynatrace_api_token = dynatrace_account_input["password"]
+        api_token = dynatrace_account_input["password"]
         index = helper.get_arg("index")
 
-        opt_dynatrace_tenant = util.parse_url(dynatrace_tenant_input)
-
+        tenant = util.parse_url(dynatrace_tenant_input)
         opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
-        dynatrace_metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
 
+        metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
         opt_ssl_certificate_verification = True
 
         helper.log_debug(f'verify_ssl: {opt_ssl_certificate_verification}')
-        helper.log_debug(f'dynatrace_tenant: {opt_dynatrace_tenant}')
+        helper.log_debug(f'dynatrace_tenant: {tenant}')
         helper.log_debug(f'dynatrace_collection_interval_minutes: {opt_dynatrace_collection_interval_minutes}')
-        helper.log_debug(f'dynatrace_metric_selectors: {dynatrace_metric_selectors}')
+        helper.log_debug(f'metric_selectors: {metric_selectors}')
 
-        page_size = 100
+        metric_descriptor_list: list[MetricDescriptorCollection] = util.execute_session(Endpoint.METRICS, tenant, api_token, Params({}), metric_selectors)
 
-        session = requests.Session()
-        session.verify = opt_ssl_certificate_verification
+        metric_descriptor_mapping = {}
+        for metric_descriptor in metric_descriptor_list:
+            metrics = metric_descriptor.get('metrics')
+            for metric in metrics:
+                metric_id = metric.get('metricId')
+                unit = metric.get('unit')
+                aggregation_types = metric.get('aggregationTypes')
+                metric_descriptor_mapping[metric_id] = (unit, aggregation_types)
 
-        for metric_selector in metrics_util.parse_metric_selectors_text_area(dynatrace_metric_selectors):
-            helper.log_debug(f"Processing Metric Selector: {metric_selector}")
+        params = {'time': util.get_from_time_utc(opt_dynatrace_collection_interval_minutes)}
 
-            end_time = f"{datetime.datetime.now().isoformat()}Z"
-            start_time = f"{(datetime.datetime.now() - datetime.timedelta(minutes=opt_dynatrace_collection_interval_minutes)).isoformat()}Z"
+        metric_data_list: list[MetricData] = list(
+            util.execute_session(Endpoint.METRICS_QUERY, tenant, api_token, params, metric_selectors))
+        print(f'metric_data_list: {metric_data_list}')
 
-            params = {'metricSelector': metric_selector, 'startTimestamp': start_time, 'endTimestamp': end_time,
-                      'pageSize': page_size}
-
-            dynatrace_data = metrics_util.prepare_and_get_data('metrics_query', opt_dynatrace_tenant, opt_dynatrace_api_token,
-                                                  params, session, helper)
-
-            metric_descriptor_data = metrics_util.prepare_and_get_data('metrics_descriptors', opt_dynatrace_tenant,
-                                                          opt_dynatrace_api_token, {'metricSelector': metric_selector},
-                                                          session, helper)
-
-            for timeseries_data in dynatrace_data:
-                if timeseries_data['data']:
-                    helper.log_debug(f"Processing Metric: {timeseries_data['metricId']}")
-                    helper.log_debug(f"Writing data to index: {index}")
-
-                    for item in metrics_util.flatten_and_zip_timeseries(timeseries_data):
-                        event_data = metrics_util.build_event_data(item, timeseries_data, metric_descriptor_data,
-                                                      opt_dynatrace_tenant, metric_selector)
+        for metric_data in metric_data_list:
+            result = metric_data.get('result')
+            resolution = metric_data.get('resolution')
+            for metric_series_collection in result:
+                metric_id = metric_series_collection.get('metricId')
+                data = metric_series_collection.get('data')
+                unit, aggregation_types = metric_descriptor_mapping.get(metric_id, (None, None))
+                for metric_series in data:
+                    for timestamp, value in zip(metric_series.get('timestamps'), metric_series.get('values')):
+                        event_data = {
+                            'timestamp': timestamp,
+                            'value': value,
+                            'metric_id': metric_id,
+                            'unit': unit,
+                            'aggregation_types': aggregation_types,
+                            'dynatraceTenant': tenant,
+                            'resolution': resolution
+                        }
                         serialized = json.dumps(event_data)
-                        event = helper.new_event(data=serialized, time=item['timestamp'], index=index)
-
+                        event = helper.new_event(data=serialized, time=timestamp, index=index)
                         ew.write_event(event)
-
-        session.close()
-
 
     def get_account_fields(self):
         account_fields= []

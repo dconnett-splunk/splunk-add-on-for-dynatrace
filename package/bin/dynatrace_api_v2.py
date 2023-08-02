@@ -26,7 +26,9 @@ from solnlib.modular_input import checkpointer
 from splunktaucclib.modinput_wrapper import base_modinput as base_mi
 import requests
 import util
+from util import Endpoint
 from pathlib import Path
+from dynatrace_types import *
 
 
 
@@ -88,25 +90,22 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
     def collect_events(helper, ew):
         dynatrace_account_input = helper.get_arg("dynatrace_account")
         dynatrace_tenant_input = dynatrace_account_input["username"]
+        opt_dynatrace_tenant: Tenant = util.parse_url(dynatrace_tenant_input)
+        opt_dynatrace_api_token: APIToken = dynatrace_account_input["password"]
 
-        if dynatrace_tenant_input.find('https://') == 0:
-            opt_dynatrace_tenant = dynatrace_tenant_input
-        elif dynatrace_tenant_input.find('http://') == 0:
-            opt_dynatrace_tenant = dynatrace_tenant_input.replace('http://', 'https://')
+        endpoint_string = helper.get_arg("dynatrace_apiv2_endpoint")
+        if ',' in endpoint_string:
+            endpoint: list[Endpoint] = [Endpoint[val.strip()] for val in endpoint_string.split(",")]
         else:
-            opt_dynatrace_tenant = 'https://' + dynatrace_tenant_input
+            endpoint: Endpoint = Endpoint[endpoint_string]
+        endpoint: Endpoint = Endpoint.get_endpoint(helper.get_arg("dynatrace_apiv2_endpoint"))
 
-        opt_dynatrace_api_token = dynatrace_account_input["password"]
-        endpoint = helper.get_arg("dynatrace_apiv2_endpoint")
-        opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
+        opt_dynatrace_collection_interval_minutes: CollectionInterval = CollectionInterval(int(helper.get_arg("dynatrace_collection_interval")))
         # opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
-
         opt_ssl_certificate_verification = util.get_ssl_certificate_verification(helper)
-
-
         index = helper.get_arg("index")
 
-        time_range = util.get_from_time(int(opt_dynatrace_collection_interval_minutes))
+        time_start = util.get_from_time(opt_dynatrace_collection_interval_minutes)
 
         # Set a default list of entity types for the 'entities' endpoint
         # TODO - Need to make this configurable
@@ -115,86 +114,32 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         # TODO - Change synthetic_tests_on_demand to synthetic_executions_on_demand
         # Will also need to change strings in the apiv2.py file and the util.py selectors and enpoints
         sourcetype_mapping = {
-            "problems": "dynatrace:problems",
-            "events": "dynatrace:events",
-            "entities": "dynatrace:entities",
-            "synthetic_locations": "dynatrace:synthetic_locations",
-            "synthetic_monitors_http": "dynatrace:synthetic_monitors",
-            "synthetic_tests_on_demand": "dynatrace:synthetic_executions"
+            Endpoint.PROBLEMS: "dynatrace:problems",
+            Endpoint.METRICS: "dynatrace:problem_details",
+            Endpoint.EVENTS: "dynatrace:events",
+            Endpoint.ENTITIES: "dynatrace:entities",
+            Endpoint.SYNTHETIC_LOCATIONS: "dynatrace:synthetic_locations",
+            Endpoint.SYNTHETIC_MONITORS_HTTP: "dynatrace:synthetic_monitors",
+            Endpoint.SYNTHETIC_TESTS_ON_DEMAND: "dynatrace:synthetic_executions"
             # Add more mappings as needed
         }
         keys_to_remove = ['responseBody', 'peerCertificateDetails']
         sourcetype = sourcetype_mapping.get(endpoint, None)
 
-        if endpoint == 'entities':
-            entity_types = default_entity_types
+
+        if endpoint == Endpoint.ENTITIES:
+            extra_params = default_entity_types
         else:
-            entity_types = None
+            extra_params = None
 
-        requests_info = util.prepare_dynatrace_params(
-            endpoint,
-            opt_dynatrace_tenant,
-            opt_dynatrace_api_token,
-            time=time_range,
-            extra_params=entity_types
-        )
-
-        dynatrace_data = util.get_dynatrace_data(requests_info, verify=opt_ssl_certificate_verification,
-                                                 opt_helper=helper)
+        dynatrace_data = util.execute_session(endpoint, opt_dynatrace_tenant, opt_dynatrace_api_token, time_start, extra_params)
 
         helper.log_debug('dynatrace_tenant: {}'.format(opt_dynatrace_tenant))
         helper.log_debug('dynatrace_collection_interval: {}'.format(opt_dynatrace_collection_interval_minutes))
 
         for record in dynatrace_data:
-            helper.log_debug('record: {}'.format(record))
-            eventLastSeenTime = None
-
-            # This is for timestamps in entities endpoint
-            if "lastSeenTimestamp" in record:
-                eventLastSeenTime = record["lastSeenTimestamp"] / 1000
-                record.update({"timestamp": eventLastSeenTime})
-            record['endpoint'] = endpoint
-
-            if endpoint == 'entities':
-                entity_request_info = util.prepare_dynatrace_params('entity',
-                                                                    opt_dynatrace_tenant,
-                                                                    opt_dynatrace_api_token,
-                                                                    params={'entity_id': record['entityId']})
-                entity_data = util.get_dynatrace_data(entity_request_info,
-                                                      verify=opt_ssl_certificate_verification,
-                                                      opt_helper=helper)
-                record.update(entity_data)
-
-            # Need to handle sythetic execution data differently
-            if endpoint == 'synthetic_monitors_http':
-                monitor_request_info = util.prepare_dynatrace_params('synthetic_monitor_http_v2',
-                                                                     opt_dynatrace_tenant,
-                                                                     opt_dynatrace_api_token,
-                                                                     params={'entityId': record['entityId']})
-                helper.log_debug('monitor_request_info: {}'.format(monitor_request_info))
-                monitor_data = util.get_dynatrace_data(monitor_request_info,
-                                                       verify=opt_ssl_certificate_verification,
-                                                       opt_helper=helper)
-                helper.log_debug('monitor_data: {}'.format(monitor_data))
-
-                record.update(util.remove_sensitive_info_recursive(monitor_data, keys_to_remove))
-
-            if endpoint == 'synthetic_tests_on_demand':
-                execution_id = record['executionId']
-                on_demand_execution_request_info = util.prepare_dynatrace_params('synthetic_test_on_demand',
-                                                                                 opt_dynatrace_tenant,
-                                                                                 opt_dynatrace_api_token,
-                                                                                 params={'executionId': execution_id})
-                helper.log_debug('execution_request_info: {}'.format(on_demand_execution_request_info))
-                execution_data = util.get_dynatrace_data(on_demand_execution_request_info,
-                                                         verify=opt_ssl_certificate_verification,
-                                                         opt_helper=helper)
-
-                helper.log_debug('execution_data: {}'.format(execution_data))
-                record.update(util.remove_sensitive_info_recursive(execution_data, keys_to_remove))
-
             serialized = json.dumps(record, sort_keys=True)
-            event = helper.new_event(data=serialized, time=eventLastSeenTime, host=None, index=index, source=None,
+            event = helper.new_event(data=serialized, host=None, index=index, source=None,
                                      sourcetype=sourcetype, done=True, unbroken=True)
             ew.write_event(event)
 
