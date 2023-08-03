@@ -30,7 +30,7 @@ import util
 from util import Endpoint
 from tempfile import NamedTemporaryFile
 import metrics_util
-from dynatrace_types_37 import MetricData, MetricDescriptorCollection, Params
+from dynatrace_types_37 import *
 
 
 
@@ -127,7 +127,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         helper.log_debug(f'dynatrace_collection_interval_minutes: {opt_dynatrace_collection_interval_minutes}')
         helper.log_debug(f'metric_selectors: {metric_selectors}')
 
-        metric_descriptor_list: List[MetricDescriptorCollection] = util.execute_session(Endpoint.METRICS, tenant, api_token, Params({}), metric_selectors)
+        metric_descriptor_list: List[MetricDescriptorCollection] = util.execute_session(Endpoint.METRICS, tenant, api_token, Params({}), metric_selectors, opt_helper=helper)
 
         metric_descriptor_mapping = {}
         for metric_descriptor in metric_descriptor_list:
@@ -138,7 +138,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                 aggregation_types = metric.get('aggregationTypes')
                 metric_descriptor_mapping[metric_id] = (unit, aggregation_types)
 
-        params = {'time': util.get_from_time_utc(opt_dynatrace_collection_interval_minutes)}
+        params = {'time': util.get_from_time(opt_dynatrace_collection_interval_minutes)}
 
         metric_data_list = list(
             util.execute_session(Endpoint.METRICS_QUERY, tenant, api_token, params, metric_selectors))

@@ -402,16 +402,13 @@ class TestUtil(unittest.TestCase):
 
     def test_execute_session_entities(self):
         print()
-        endpoint = [Endpoint.ENTITIES, Endpoint.ENTITY]
+        endpoint = (Endpoint.ENTITIES, Endpoint.ENTITY)
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
         params = Params({'time': util.get_from_time()})
-        extra_params = ["HOST", "SERVICE", "APPLICATION", "PROCESS_GROUP", "PROCESS_GROUP_INSTANCE",
-                        "SYNTHETIC_TEST",
-                        "SYNTHETIC_TEST_STEP"]
 
-        result = util.execute_session(endpoint, tenant, api_token, params, extra_params)
+        result = util.execute_session(endpoint, tenant, api_token, params)
         for entity in result:
             print(f'entity: {entity}')
 
@@ -431,7 +428,7 @@ class TestUtil(unittest.TestCase):
 
     def test_execute_session_synthetic(self):
         print()
-        endpoint = [Endpoint.SYNTHETIC_MONITORS_HTTP, Endpoint.SYNTHETIC_MONITOR_HTTP]
+        endpoint = (Endpoint.SYNTHETIC_MONITORS_HTTP, Endpoint.SYNTHETIC_MONITOR_HTTP)
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
@@ -457,6 +454,18 @@ class TestUtil(unittest.TestCase):
     def test_synthetic_locations(self):
         print()
         endpoint = Endpoint.SYNTHETIC_LOCATIONS
+        secrets = util.parse_secrets_env()
+        tenant = secrets['dynatrace_tenant']
+        api_token = secrets['dynatrace_api_token']
+        params = Params({'time': util.get_from_time()})
+
+        result = util.execute_session(endpoint, tenant, api_token, params)
+        for synthetic in result:
+            print(f'synthetic: {synthetic}')
+
+    def test_synthetic_on_demand(self):
+        print()
+        endpoint = Endpoint.SYNTHETIC_TESTS_ON_DEMAND
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']

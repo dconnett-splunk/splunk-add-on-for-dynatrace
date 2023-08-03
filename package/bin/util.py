@@ -17,6 +17,7 @@ import string
 from dynatrace_types_37 import *
 # from dynatrace_types import *
 import json
+import certifi
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -50,7 +51,7 @@ class EndpointInfo:
     selector: ResponseSelector
     params: Optional[Params]
     url_path_param: Optional[PathParam]
-
+    extra_params: Optional[List[str]] = None
 
 class Endpoint(Enum):
     METRICS = \
@@ -77,7 +78,9 @@ class Endpoint(Enum):
             URL('/api/v2/entities'),
             ResponseSelector('entities'),
             Params({'entitySelector': 'type(\"{entitySelector}\")'}),
-            None)
+            None,
+            ["HOST", "PROCESS_GROUP_INSTANCE", "PROCESS_GROUP", "APPLICATION", "SERVICE", "SYNTHETIC_TEST",
+             "SYNTHETIC_TEST_STEP"])
     ENTITY = \
         EndpointInfo(
             URL('/api/v2/entities/{entityId}'),
@@ -166,6 +169,10 @@ class Endpoint(Enum):
     @property
     def url_path_param(self):
         return self.value.url_path_param if isinstance(self.value, EndpointInfo) else None
+
+    @property
+    def extra_params(self):
+        return self.value.extra_params
 
     @classmethod
     def get_endpoint(cls, endpoint_value):
@@ -462,7 +469,8 @@ get_details_map = {
 }
 
 
-def execute_session(endpoints: Union[Endpoint, List[Endpoint]], tenant, api_token, params, extra_params=None):
+def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenant, api_token, params, extra_params=None,
+                    opt_helper=None):
     params = Params(params)
 
     with requests.Session() as session:
@@ -470,7 +478,7 @@ def execute_session(endpoints: Union[Endpoint, List[Endpoint]], tenant, api_toke
         session.headers.update(prepared_headers)
 
         # Check if a single endpoint or a list of endpoints was provided
-        if isinstance(endpoints, list):
+        if isinstance(endpoints, tuple):
             main_endpoint = endpoints[0]
             detail_endpoints = endpoints[1:]
         else:
@@ -478,8 +486,12 @@ def execute_session(endpoints: Union[Endpoint, List[Endpoint]], tenant, api_toke
             detail_endpoints = []
 
         # Process the main endpoint
+        if main_endpoint.extra_params and extra_params is None:
+            extra_params = main_endpoint.extra_params
+
         prepared_params_list = prepare_dynatrace_params(tenant, params, main_endpoint, extra_params)
-        for result in get_dynatrace_data(session, prepared_params_list):
+
+        for result in get_dynatrace_data(session, prepared_params_list, opt_helper):
             # Check if result is a list and if so, yield each item individually
             # Only do this if there are no detail endpoints
             if not detail_endpoints and isinstance(result, list):
@@ -503,10 +515,17 @@ def execute_session(endpoints: Union[Endpoint, List[Endpoint]], tenant, api_toke
 def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
     for url, params, endpoint in prepared_params_list:
         prepared_request = prepare_dynatrace_request(session, url, params)
-        settings = session.merge_environment_settings(prepared_request.url, {}, None, None, None)
+        settings = session.merge_environment_settings(prepared_request.url, {}, None, get_ssl_certificate_verification(), None)
+
+        # print(f'Prepared Request: {prepared_request} {prepared_request.url} {prepared_request.body}')
+        # print(f'url: {url}')
+        # print(f'params: {params}')
+        # print(f'Settings: {settings}')
 
         if opt_helper:
-            opt_helper.log_debug(f'Prepared Request: {prepared_request}')
+            opt_helper.log_debug(f'Prepared Request: {prepared_request} {prepared_request.url} {prepared_request.body}')
+            opt_helper.log_debug(f'url: {url}')
+            opt_helper.log_debug(f'params: {params}')
             opt_helper.log_debug(f'Settings: {settings}')
 
         for response_json in _get_dynatrace_data(session, prepared_request, settings, opt_helper):
@@ -523,12 +542,16 @@ def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: di
     while True:
         try:
             response: Response = session.send(prepared_request, **settings)
+            response.raise_for_status()  # raise HTTPError if status >=400
+
             if opt_helper:
                 opt_helper.log_debug(f'Response: {response.text}')
-            response.raise_for_status()
+
             response_json: json = response.json()
+
             if opt_helper:
                 opt_helper.log_debug(f'Parsed response: {response_json}')
+
             yield response_json
 
             if 'nextPageKey' not in response_json or response_json['nextPageKey'] is None:
@@ -539,8 +562,17 @@ def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: di
 
         except requests.exceptions.HTTPError as err:
             if opt_helper:
-                opt_helper.log_error(f'Error: {err}')
-            yield None
+                # Log the status code and error message
+                opt_helper.log_error(f'HTTP Error: {err}')
+
+                # If the server sent a response, log the response body
+                if err.response is not None:
+                    opt_helper.log_error(f'Details: {err.response.text}')
+            break
+
+        except Exception as e:
+            if opt_helper:
+                opt_helper.log_error(f'Unexpected error: {e}')
             break
 
 
@@ -555,7 +587,7 @@ def parse_dynatrace_response(response: json, endpoint: Endpoint):
     elif endpoint == Endpoint.SYNTHETIC_MONITOR_HTTP_V2 and isinstance(response, dict):
         return MonitorExecutionResults(**response)
     elif endpoint == Endpoint.SYNTHETIC_MONITORS_HTTP_V2:
-        return List[Dict](response)
+        return response
     elif endpoint == Endpoint.METRIC_DESCRIPTORS and isinstance(response, dict):
         return MetricDescriptor(**response)
     elif endpoint == Endpoint.ENTITY and isinstance(response, dict):
@@ -585,33 +617,42 @@ def parse_dynatrace_response(response: json, endpoint: Endpoint):
     return response
 
 
-def get_ssl_certificate_verification(helper):
+def get_ssl_certificate_verification(helper=None):
     local_dir = os.path.abspath(os.path.join(Path(__file__).resolve().parent.parent, "local"))
-    helper.log_debug('local_dir: {}'.format(local_dir))
+    if helper:
+        helper.log_debug('local_dir: {}'.format(local_dir))
     cert_file = os.path.join(local_dir, "cert.pem")
-    helper.log_debug('cert_file: {}'.format(cert_file))
-    user_uploaded_certificate = helper.get_global_setting('user_certificate')
+    if helper:
+        helper.log_debug('cert_file: {}'.format(cert_file))
 
-    # Check if local user_certificate file, exists, is the same as the one in the UI, if not update the file on disk
-    if os.path.isfile(cert_file):
-        if user_uploaded_certificate:
-            if not filecmp.cmp(cert_file, user_uploaded_certificate):
-                helper.log_debug('Updating cert.pem')
-                shutil.copy(user_uploaded_certificate, cert_file)
+    user_uploaded_certificate = helper.get_global_setting('user_certificate') if helper else None
 
-    helper.log_debug('user_uploaded_certificate: {}'.format(user_uploaded_certificate))
+    # Check if local user_certificate file exists, is the same as the one in the UI, if not update the file on disk
+    if os.path.isfile(cert_file) and user_uploaded_certificate and not filecmp.cmp(cert_file, user_uploaded_certificate):
+        if helper:
+            helper.log_debug('Updating cert.pem')
+        shutil.copy(user_uploaded_certificate, cert_file)
 
-    # Set the default Splunk Cert store location $SPLUNK_HOME/etc/auth/
-    splunk_cert_dir = os.environ['REQUESTS_CA_BUNDLE'] = os.path.join(os.environ['SPLUNK_HOME'], 'etc', 'auth')
+    if helper:
+        helper.log_debug('user_uploaded_certificate: {}'.format(user_uploaded_certificate))
 
+    # This is commented out for now, as requested
+    # if 'SPLUNK_HOME' in os.environ:
+    #     splunk_cert_dir = os.path.join(os.environ['SPLUNK_HOME'], 'etc', 'auth')
+    #     os.environ['REQUESTS_CA_BUNDLE'] = splunk_cert_dir
+    # else:
+    #     if helper:
+    #         helper.log_warning('$SPLUNK_HOME environment variable is not set.')
+
+    # Check if cert_file exists first, otherwise use certifi.where() as default
     if os.path.isfile(cert_file):
         opt_ssl_certificate_verification = cert_file
-    # Check for user_uploaded_certificate
-    elif os.path.isfile(user_uploaded_certificate):
+    elif user_uploaded_certificate and os.path.isfile(user_uploaded_certificate):
         opt_ssl_certificate_verification = user_uploaded_certificate
-    # Default to True if no valid file is found
     else:
-        opt_ssl_certificate_verification = True
+        opt_ssl_certificate_verification = certifi.where()
 
     return opt_ssl_certificate_verification
+
+
 

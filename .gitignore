@@ -71,3 +71,4 @@ temporary_credentials/passwords.conf
 /releases/
 *.pkl
 .idea/splunk-add-on-for-dynatrace.iml
+tests/test_util.py
