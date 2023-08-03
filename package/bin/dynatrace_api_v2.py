@@ -95,10 +95,10 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
 
         endpoint_string = helper.get_arg("dynatrace_apiv2_endpoint")
         if ',' in endpoint_string:
-            endpoint: List[Endpoint] = [Endpoint[val.strip()] for val in endpoint_string.split(",")]
+            endpoint = tuple(Endpoint.get_endpoint(val.strip()) for val in endpoint_string.split(","))
+            helper.log_info(f'endpoint: {endpoint}')
         else:
-            endpoint: Endpoint = Endpoint[endpoint_string]
-        endpoint: Endpoint = Endpoint.get_endpoint(helper.get_arg("dynatrace_apiv2_endpoint"))
+            endpoint: Endpoint = Endpoint.get_endpoint(endpoint_string)
 
         opt_dynatrace_collection_interval_minutes: CollectionInterval = CollectionInterval(int(helper.get_arg("dynatrace_collection_interval")))
         # opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
@@ -109,39 +109,40 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
 
         # Set a default list of entity types for the 'entities' endpoint
         # TODO - Need to make this configurable
-        default_entity_types = {'entity_types': ['HOST', 'PROCESS_GROUP_INSTANCE', 'PROCESS_GROUP', 'APPLICATION', 'SERVICE' 'SYNTHETIC_TEST', 'SYNTHETIC_TEST_STEP']}
+        default_entity_types = ["HOST", "PROCESS_GROUP_INSTANCE", "PROCESS_GROUP", "APPLICATION", "SERVICE", "SYNTHETIC_TEST", "SYNTHETIC_TEST_STEP"]
 
         # TODO - Change synthetic_tests_on_demand to synthetic_executions_on_demand
         # Will also need to change strings in the apiv2.py file and the util.py selectors and enpoints
         sourcetype_mapping = {
-            Endpoint.PROBLEMS: "dynatrace:problems",
-            Endpoint.METRICS: "dynatrace:problem_details",
-            Endpoint.EVENTS: "dynatrace:events",
             Endpoint.ENTITIES: "dynatrace:entities",
+            (Endpoint.ENTITIES, Endpoint.ENTITY): "dynatrace:entities",
+            Endpoint.EVENTS: "dynatrace:events",
+            Endpoint.PROBLEMS: "dynatrace:problems",
+            (Endpoint.PROBLEMS, Endpoint.PROBLEM): "dynatrace:problem_details",
             Endpoint.SYNTHETIC_LOCATIONS: "dynatrace:synthetic_locations",
             Endpoint.SYNTHETIC_MONITORS_HTTP: "dynatrace:synthetic_monitors",
-            Endpoint.SYNTHETIC_TESTS_ON_DEMAND: "dynatrace:synthetic_executions"
-            # Add more mappings as needed
+            Endpoint.SYNTHETIC_TESTS_ON_DEMAND: "dynatrace:on_demand_executions",
+            (Endpoint.SYNTHETIC_MONITORS_HTTP, Endpoint.SYNTHETIC_MONITOR_HTTP): "dynatrace:synthetic_monitor_details"
         }
+
         keys_to_remove = ['responseBody', 'peerCertificateDetails']
         sourcetype = sourcetype_mapping.get(endpoint, None)
 
-
-        if endpoint == Endpoint.ENTITIES:
-            extra_params = default_entity_types
-        else:
-            extra_params = None
-
-        dynatrace_data = util.execute_session(endpoint, opt_dynatrace_tenant, opt_dynatrace_api_token, time_start, extra_params)
+        params = {'time': time_start}
+        dynatrace_data = util.execute_session(endpoint, opt_dynatrace_tenant, opt_dynatrace_api_token, params, opt_helper=helper)
 
         helper.log_debug('dynatrace_tenant: {}'.format(opt_dynatrace_tenant))
         helper.log_debug('dynatrace_collection_interval: {}'.format(opt_dynatrace_collection_interval_minutes))
 
-        for record in dynatrace_data:
-            serialized = json.dumps(record, sort_keys=True)
-            event = helper.new_event(data=serialized, host=None, index=index, source=None,
-                                     sourcetype=sourcetype, done=True, unbroken=True)
-            ew.write_event(event)
+        if dynatrace_data:
+            for record in dynatrace_data:
+                helper.log_debug('record: {}'.format(record))
+                serialized = json.dumps(record, sort_keys=True)
+                event = helper.new_event(data=serialized, host=None, index=index, source=None,
+                                         sourcetype=sourcetype, done=True, unbroken=True)
+                ew.write_event(event)
+        else:
+            helper.log_warning(f'No data returned from Dynatrace API for endpoint: {endpoint}')
 
     def get_account_fields(self):
         account_fields = []
