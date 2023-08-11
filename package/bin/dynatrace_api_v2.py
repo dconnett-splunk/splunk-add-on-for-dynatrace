@@ -115,10 +115,9 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         # Will also need to change strings in the apiv2.py file and the util.py selectors and enpoints
         sourcetype_mapping = {
             Endpoint.ENTITIES: "dynatrace:entities",
-            (Endpoint.ENTITIES, Endpoint.ENTITY): "dynatrace:entities",
             Endpoint.EVENTS: "dynatrace:events",
-            Endpoint.PROBLEMS: "dynatrace:problems",
-            (Endpoint.PROBLEMS, Endpoint.PROBLEM): "dynatrace:problem_details",
+            Endpoint.PROBLEMS: "dynatrace:problem",
+            (Endpoint.PROBLEMS, Endpoint.PROBLEM): "dynatrace:problem",
             Endpoint.SYNTHETIC_LOCATIONS: "dynatrace:synthetic_locations",
             Endpoint.SYNTHETIC_MONITORS_HTTP: "dynatrace:synthetic_monitors",
             Endpoint.SYNTHETIC_TESTS_ON_DEMAND: "dynatrace:on_demand_executions",
