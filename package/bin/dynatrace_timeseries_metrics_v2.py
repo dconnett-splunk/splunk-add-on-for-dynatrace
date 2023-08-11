@@ -14,22 +14,17 @@ import import_declare_test
 import os
 import os.path as op
 import sys
-import time
-import datetime
 import json
 
 import traceback
-import requests
 from splunklib import modularinput as smi
 from solnlib import conf_manager
 from solnlib import log
 from solnlib.modular_input import checkpointer
 from splunktaucclib.modinput_wrapper import base_modinput  as base_mi 
-import requests
 import util
 from util import Endpoint
-from tempfile import NamedTemporaryFile
-import metrics_util
+from metrics_util import parse_metric_selectors_text_area
 from dynatrace_types_37 import *
 
 
@@ -60,14 +55,12 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
 
     def __init__(self):
         use_single_instance = False
-        super(ModInputdynatrace_timeseries_metrics_v2, self).__init__(
-            "splunk_ta_dynatrace", "dynatrace_timeseries_metrics_v2", use_single_instance)
+        super(ModInputdynatrace_timeseries_metrics_v2, self).__init__("splunk_ta_dynatrace", "dynatrace_timeseries_metrics_v2", use_single_instance)
         self.global_checkbox_fields = None
 
     def get_scheme(self):
         """overloaded splunklib modularinput method"""
-        scheme = super(ModInputdynatrace_timeseries_metrics_v2,
-                       self).get_scheme()
+        scheme = super(ModInputdynatrace_timeseries_metrics_v2, self).get_scheme()
         scheme.title = ("Dynatrace Timeseries Metrics API v2")
         scheme.description = (
             "Go to the add-on\'s configuration UI and configure modular inputs under the Inputs menu.")
@@ -119,7 +112,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         tenant = util.parse_url(dynatrace_tenant_input)
         opt_dynatrace_collection_interval_minutes = int(helper.get_arg("dynatrace_collection_interval"))
 
-        metric_selectors = helper.get_arg('dynatrace_metric_selectors_v2_textarea')
+        metric_selectors = parse_metric_selectors_text_area(helper.get_arg('dynatrace_metric_selectors_v2_textarea'))
         opt_ssl_certificate_verification = True
 
         helper.log_debug(f'verify_ssl: {opt_ssl_certificate_verification}')
@@ -141,8 +134,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
         params = {'time': util.get_from_time(opt_dynatrace_collection_interval_minutes)}
 
         metric_data_list = list(
-            util.execute_session(Endpoint.METRICS_QUERY, tenant, api_token, params, metric_selectors))
-        print(f'metric_data_list: {metric_data_list}')
+            util.execute_session(Endpoint.METRICS_QUERY, tenant, api_token, params, extra_params=metric_selectors, opt_helper=helper))
 
         for metric_data in metric_data_list:
             result = metric_data.get('result')

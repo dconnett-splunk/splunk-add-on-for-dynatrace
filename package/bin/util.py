@@ -525,6 +525,7 @@ def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
         if opt_helper:
             opt_helper.log_debug(f'Prepared Request: {prepared_request} {prepared_request.url} {prepared_request.body}')
             opt_helper.log_debug(f'url: {url}')
+            opt_helper.log_debug(f'headers: {prepared_request.headers}')
             opt_helper.log_debug(f'params: {params}')
             opt_helper.log_debug(f'Settings: {settings}')
 
