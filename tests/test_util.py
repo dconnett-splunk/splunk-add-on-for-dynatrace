@@ -25,6 +25,30 @@ version = '2.0.8'
 script_location: Path = Path(__file__).resolve()
 
 
+class MockModularInput:
+    def log_debug(self, msg, *args, **kwargs):
+        print(f"DEBUG: {msg}", *args, **kwargs)
+
+    def log_info(self, msg, *args, **kwargs):
+        print(f"INFO: {msg}", *args, **kwargs)
+
+    def log_warning(self, msg, *args, **kwargs):
+        print(f"WARNING: {msg}", *args, **kwargs)
+
+    def log_error(self, msg, *args, **kwargs):
+        print(f"ERROR: {msg}", *args, **kwargs)
+
+    def log_critical(self, msg, *args, **kwargs):
+        print(f"CRITICAL: {msg}", *args, **kwargs)
+
+    # This method is triggered if an attribute is not found in the usual places
+    def __getattr__(self, name):
+        def method(*args, **kwargs):
+            print(f"Call to undefined method '{name}' with args: {args} and kwargs: {kwargs}")
+
+        return method
+
+
 def parse_open_api_spec(oas_spec: Path):
     """Parse an OpenAPI specification file"""
     with open(oas_spec, 'r') as f:
@@ -412,8 +436,6 @@ class TestUtil(unittest.TestCase):
         for entity in result:
             print(f'entity: {entity}')
 
-
-
     def test_execute_session_problems(self):
         print()
         endpoint = Endpoint.PROBLEMS
@@ -423,6 +445,19 @@ class TestUtil(unittest.TestCase):
         params = Params({'time': util.get_from_time()})
 
         result = util.execute_session(endpoint, tenant, api_token, params)
+        for problem in result:
+            print(f'problem: {problem}')
+
+    def test_execute_session_problem_details(self):
+        print()
+        mock_helper = MockModularInput()
+        endpoint = (Endpoint.PROBLEMS, Endpoint.PROBLEM)
+        secrets = util.parse_secrets_env()
+        tenant = secrets['dynatrace_tenant']
+        api_token = secrets['dynatrace_api_token']
+        params = Params({'time': util.get_from_time()})
+
+        result = util.execute_session(endpoint, tenant, api_token, params, opt_helper=mock_helper)
         for problem in result:
             print(f'problem: {problem}')
 
@@ -680,6 +715,9 @@ class TestMetricsUtil(unittest.TestCase):
 
     def test_metric_execute_session(self):
         print()
+        metric_selectors_from_file = """builtin:synthetic.http.execution.status
+        builtin:synthetic.http.dns.geo
+        builtin:synthetic.http.request.tlsHandshakeTime.geo"""
         metric_selectors: list[MetricSelector] = dt_metrics.parse_metric_selectors_text_area(metric_selectors_from_file)
         secrets = util.parse_secrets_env()
         time = util.get_from_time(60)
