@@ -18,9 +18,9 @@ from dynatrace_types_37 import *
 # from dynatrace_types import *
 import json
 import certifi
+from string import Formatter
 
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+#urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 """util.py: This module contains utility functions for the package. These functions are used by the package's scripts.
 
@@ -32,7 +32,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         get_dynatrace_entity_end"""
 
 __author__ = "David Connett"
-__version__ = "2.0.8"
+__version__ = "2.1.1"
 __maintainer__ = "David Connett"
 __email__ = "dconnett@splunk.com"
 __status__ = "Development"
@@ -45,6 +45,7 @@ dynatrace_managed_uri_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2
 dynatrace_saas_uri_v2 = 'https://{your-enviroment-id}.live.dynatrace.com/api/v2'
 dynatrace_environment_active_gate_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2'
 
+
 @dataclass
 class EndpointInfo:
     url: URL
@@ -52,6 +53,7 @@ class EndpointInfo:
     params: Optional[Params]
     url_path_param: Optional[PathParam]
     extra_params: Optional[List[str]] = None
+
 
 class Endpoint(Enum):
     METRICS = \
@@ -182,9 +184,6 @@ class Endpoint(Enum):
             return None
 
 
-
-
-
 def get_current_working_directory():
     """Get the current working directory.
 
@@ -250,6 +249,7 @@ def parse_url(url):
         else:
             return 'https://' + url
     return url
+
 
 # Parse secrets.env file
 def parse_secrets_env():
@@ -334,21 +334,34 @@ def create_session(tenant, api_token, verify=True) -> requests.Session:
     return session
 
 
+def find_format_key(value: str) -> Optional[str]:
+    """Find the key to be formatted from a given string value."""
+    format_keys = [tup[1] for tup in Formatter().parse(value) if tup[1] is not None]
+    return format_keys[0] if format_keys else None
+
+
+def get_formatted_key_value_pair(key: str, value: str, params: Params) -> Tuple[str, Any]:
+    """Return the key-value pair after formatting."""
+    replaced_key = find_format_key(value)
+    if replaced_key and replaced_key in params:
+        formatted_value = value.format(**{replaced_key: params[replaced_key]})
+        return key, formatted_value
+    return key, value
+
+
 def format_url_and_pop_path_params(endpoint: Endpoint, params: Params, url: URL) -> Tuple[URL, Params]:
-    """Format the URL and pop the URL Path parameter from the params dictionary.
-    Why are we passing Path Parameters through the Query Parameters?
-    No idea, but I feel like there was a reason..."""
-    new_params = Params(params.copy())
+    """Format the URL and pop the URL Path parameter from the params dictionary."""
     if endpoint.url_path_param:
-        param_key = endpoint.url_path_param
-        if param_key in params:
-            url = url.format(**{param_key: params.get(param_key)})
-            new_params.pop(param_key)
-    return url, new_params
+        endpoint_path_key = endpoint.url_path_param
+        if endpoint_path_key in params:
+            formatted_url = URL(url.format(**{endpoint_path_key: params[endpoint_path_key]}))
+            new_params = Params({k: v for k, v in params.items() if k != endpoint_path_key})
+            return formatted_url, new_params
+    return url, params
 
 
 def format_params(endpoint: Endpoint, params: Params) -> Params:
-    """This function serves 3 purposes and is likely a very bad idea.
+    """Format and inject parameters according to the Endpoint Enum.
     Injects default parameters from V2Endpoints Enum,
                 Params Input: {}
                 -> {'fields': 'unit,aggregationTypes'} for METRICS,
@@ -375,30 +388,24 @@ def format_params(endpoint: Endpoint, params: Params) -> Params:
                 -> {'entitySelector': 'type(\"HOST\")'}
 
     """
-    # Iterate over the endpoint Enum params
-    if params and endpoint.params:
+    formatted_params = params.copy()
+    if endpoint.params:
         for key, value in endpoint.params.items():
-            # Format it if it can be formatted
+            # If the value contains a format string
             if '{' in value:
-                replaced_value = [tup[1] for tup in string.Formatter().parse(value) if tup[1] is not None][0]
-                if replaced_value in params:
-                    # Gets the format string from the value, and replaces it with the key
-                    # AKA: {'writtenSince': '{time}'} -> 'time'
-                    replaced_value: str = [tup[1] for tup in string.Formatter().parse(value) if tup[1] is not None][0]
-
-                    # Format the default V2Endpoints value with the input params
-                    # AKA: {'writtenSince': '{time}'} -> {'writtenSince': '1234'}
-                    params[key] = value.format(**params)
-
-                    # If we renamed the key, remove the old key
-                    # AKA: {'writtenSince': '1234', 'time': '1234'} -> {'writtenSince': '1234'}
-                    if replaced_value != key:
-                        params.pop(replaced_value)
-            elif '{' in value and key not in params:
-                pass
+                format_key = find_format_key(value)
+                if format_key and format_key in formatted_params:
+                    new_key, new_value = get_formatted_key_value_pair(key, value, formatted_params)
+                    formatted_params[new_key] = new_value
+                    # If the key has changed, remove the original key
+                    if new_key != key:
+                        formatted_params.pop(key)
+                    # If the formatted value uses a parameter, consume that parameter
+                    if format_key != key:
+                        formatted_params.pop(format_key)
             else:
-                params[key] = value
-    return params
+                formatted_params[key] = value
+    return Params(formatted_params)
 
 
 def build_url(endpoint: Endpoint, tenant: Tenant, params: Params) -> URL:
@@ -517,11 +524,6 @@ def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
         prepared_request = prepare_dynatrace_request(session, url, params)
         settings = session.merge_environment_settings(prepared_request.url, {}, None, get_ssl_certificate_verification(), None)
 
-        # print(f'Prepared Request: {prepared_request} {prepared_request.url} {prepared_request.body}')
-        # print(f'url: {url}')
-        # print(f'params: {params}')
-        # print(f'Settings: {settings}')
-
         if opt_helper:
             opt_helper.log_debug(f'Prepared Request: {prepared_request} {prepared_request.url} {prepared_request.body}')
             opt_helper.log_debug(f'url: {url}')
@@ -540,6 +542,7 @@ def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
 
 
 def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: dict, opt_helper) -> json:
+    base_url = prepared_request.url.replace(prepared_request.path_url, '')
     while True:
         try:
             response: Response = session.send(prepared_request, **settings)
@@ -558,8 +561,8 @@ def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: di
             if 'nextPageKey' not in response_json or response_json['nextPageKey'] is None:
                 break
 
-            # Update the prepared request with the next page key
-            prepared_request.prepare_url(prepared_request.url, params={'nextPageKey': response_json['nextPageKey']})
+            # Re-prepare the URL using the updated params
+            prepared_request.prepare_url(base_url, {'nextPageKey': response_json['nextPageKey']})
 
         except requests.exceptions.HTTPError as err:
             if opt_helper:

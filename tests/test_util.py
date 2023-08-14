@@ -59,13 +59,8 @@ def parse_open_api_spec(oas_spec: Path):
 def get_example_from_spec(spec, path, method='get', response_code='200'):
     """Get example from the OpenAPI spec for a certain path, method and response code"""
     try:
-        response_content_type = list(
-            spec.get('paths', {}).get(path, {}).get(method, {}).get('responses', {}).get(response_code, {}).get(
-                'content', {}))[0]
-        schema_ref = spec.get('paths', {}).get(path, {}).get(method, {}).get('responses', {}).get(response_code,
-                                                                                                  {}).get('content',
-                                                                                                          {}).get(
-            response_content_type, {}).get('schema', {}).get('$ref', '')
+        response_content_type = list(spec.get('paths', {}).get(path, {}).get(method, {}).get('responses', {}).get(response_code, {}).get('content', {}))[0]
+        schema_ref = spec.get('paths', {}).get(path, {}).get(method, {}).get('responses', {}).get(response_code, {}).get('content', {}).get(response_content_type, {}).get('schema', {}).get('$ref', '')
         schema_name = schema_ref.split('/')[-1]
         return spec.get('components', {}).get('schemas', {}).get(schema_name, {}).get('example', None)
     except IndexError:
@@ -183,23 +178,6 @@ class TestUtil(unittest.TestCase):
     def setUp(self):
         self.spec = parse_open_api_spec(Path('dynatrace_oas_spec3.json'))
 
-    def test_format_url_and_pop_params(self):
-        endpoint = Endpoint.ENTITY
-        url = URL("https://example.com/api/v2/{entityId}")
-        params = Params({"entityId": "1234", "name": "test"})
-
-        # Expected values
-        expected_url = "https://example.com/api/v2/1234"
-        expected_params = {"name": "test"}
-
-        result_url, result_params = util.format_url_and_pop_path_params(endpoint, params, url)
-        print()
-        print(f"result_url: {result_url}")
-        print(f"result_params: {result_params}")
-
-        self.assertEqual(expected_url, result_url)
-        self.assertEqual(expected_params, result_params)
-
     @staticmethod
     def generate_dynatrace_params():
         time = util.get_from_time()
@@ -233,6 +211,148 @@ class TestUtil(unittest.TestCase):
                 print(f"expected_url: {expected_url}")
 
                 yield expected_url, url, prepared_params, endpoint
+
+    def test_find_format_key(self):
+        print()
+        for endpoint in Endpoint:
+            print()
+            print(f'endpoint: {endpoint}')
+            print(f'endpoint.url: {endpoint.url}')
+            print(f'endpoint.url_path_param: {endpoint.url_path_param}')
+            print(f'endpoint.params: {endpoint.params}')
+
+            # Iterate through endpoint.params to find and test the format key(s)
+            if endpoint.params:
+                for key, value in endpoint.params.items():
+                    # Find the format key
+                    format_key = util.find_format_key(value)
+                    print(f'key: {key}, value: {value}, found format key: {format_key}')
+
+                    # Optionally, add some assertions here to verify the correct behavior
+                    if '{' in value:
+                        expected_key = value.split("{")[1].split("}")[0]
+                        self.assertEqual(format_key, expected_key)
+                    else:
+                        self.assertIsNone(format_key)
+
+    def test_get_formatted_key_value_pair(self):
+        test_cases = [
+            # Format the value using key 'time' from params
+            ('time', '{time}', Params({'time': '1234'}), ('time', '1234')),
+            # Keep original key and value as no formatting is required
+            ('name', 'test', Params({'time': '1234'}), ('name', 'test')),
+            # Use 'name' key in value for formatting, but return with original key 'alias'
+            ('alias', '{name}', Params({'name': 'test'}), ('alias', 'test')),
+            # Format key is not found in params, so original key and value are returned
+            ('missing', '{notfound}', Params({'time': '1234'}), ('missing', '{notfound}')),
+        ]
+
+        for test_case in test_cases:
+            key, value, params, expected_result = test_case
+            print(f'key: {key}, value: {value}, params: {params}')
+            result = util.get_formatted_key_value_pair(key, value, params)
+            print(f'result: {result}')
+            self.assertEqual(expected_result, result)
+
+    def test_format_url_and_pop_params(self):
+        endpoint = Endpoint.ENTITY
+        url = URL("https://example.com/api/v2/{entityId}")
+        params = Params({"entityId": "1234", "name": "test"})
+
+        # Expected values
+        expected_url = "https://example.com/api/v2/1234"
+        expected_params = {"name": "test"}
+
+        result_url, result_params = util.format_url_and_pop_path_params(endpoint, params, url)
+        print()
+        print(f"result_url: {result_url}")
+        print(f"result_params: {result_params}")
+
+        self.assertEqual(expected_url, result_url)
+        self.assertEqual(expected_params, result_params)
+
+    def test_format_url_and_pop_params2(self):
+        print()
+        for endpoint in Endpoint:
+            print()
+            url = URL("https://localhost:12345" + endpoint.url)
+            params = Params({"time": "1234", "name": "test"})
+            print(f'starting url: {url}')
+            print(f'starting params: {params}')
+            if endpoint.url_path_param:
+                params = Params({endpoint.url_path_param: "Computer1234"})
+                print(f'params: {params}')
+            if endpoint.params:
+                params = Params({**params, **endpoint.params})
+                print(f'params: {params}')
+
+            result_url, result_params = util.format_url_and_pop_path_params(endpoint, params, url)
+            print(f"result_url: {result_url}")
+            print(f"result_params: {result_params}")
+
+    def test_format_params(self):
+        print()
+        for endpoint in Endpoint:
+            print()
+            url = URL("https://localhost:12345" + endpoint.url)
+            params = Params({"time": "1234", "name": "test"})
+            print(f'starting url: {url}')
+            print(f'starting params: {params}')
+            if endpoint.url_path_param:
+                params = Params({endpoint.url_path_param: "Computer1234"})
+                print(f'params after adding url_path_param: {params}')
+
+            # Combining the endpoint.params with the existing params
+            if endpoint.params:
+                params = Params({**params, **endpoint.params})
+                print(f'params after adding endpoint.params: {params}')
+
+            # Formatting the parameters
+            formatted_params = util.format_params(endpoint, params)
+            print(f'formatted_params after formatting: {formatted_params}')
+
+            # Formatting the URL and popping the path parameters
+            result_url, result_params = util.format_url_and_pop_path_params(endpoint, formatted_params, url)
+            print(f"result_url: {result_url}")
+            print(f"result_params: {result_params}")
+
+    def test_get_dynatrace_data_paging(self):
+        # Define the responses to simulate paging
+        page_responses = [
+            {'nextPageKey': 'page2', 'data': 'page1_data'},
+            {'nextPageKey': 'page3', 'data': 'page2_data'},
+            {'nextPageKey': None, 'data': 'page3_data'},
+        ]
+
+        def side_effect(*args, **kwargs):
+            prepared_request = args[0]
+            url = prepared_request.url
+            print(f"URL inside side_effect: {url}")  # Debugging print
+            if 'page2' in url:
+                return create_response(page_responses[1])
+            elif 'page3' in url:
+                return create_response(page_responses[2])
+            else:
+                return create_response(page_responses[0])
+
+        def create_response(content_dict):
+            response = Response()
+            response.status_code = 200
+            response._content = json.dumps(content_dict).encode('utf-8')
+            return response
+
+        session = requests.Session()
+        prepared_request = PreparedRequest()
+        prepared_request.prepare_url('http://test.localhost:12345', params={'test': 'test'})
+        settings = {}  # Adjust as needed
+        opt_helper = MockModularInput()  # Or provide your helper object
+
+        with patch('requests.Session.send', side_effect=side_effect):  # Patching the correct method
+            print(f"Prepared request: {prepared_request.__dict__}")  # Print the prepared_request object
+            results = list(util._get_dynatrace_data(session, prepared_request, settings, opt_helper))
+
+            # Validate the results
+            assert results == page_responses
 
     def test_prepare_dynatrace_params(self):
         print()
