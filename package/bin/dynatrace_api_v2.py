@@ -114,13 +114,13 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         # TODO - Change synthetic_tests_on_demand to synthetic_executions_on_demand
         # Will also need to change strings in the apiv2.py file and the util.py selectors and enpoints
         sourcetype_mapping = {
-            Endpoint.ENTITIES: "dynatrace:entities",
-            Endpoint.EVENTS: "dynatrace:events",
+            Endpoint.ENTITIES: "dynatrace:entity",
+            Endpoint.EVENTS: "dynatrace:event",
             Endpoint.PROBLEMS: "dynatrace:problem",
-            (Endpoint.PROBLEMS, Endpoint.PROBLEM): "dynatrace:problem",
-            Endpoint.SYNTHETIC_LOCATIONS: "dynatrace:synthetic_locations",
-            Endpoint.SYNTHETIC_MONITORS_HTTP: "dynatrace:synthetic_monitors",
-            Endpoint.SYNTHETIC_TESTS_ON_DEMAND: "dynatrace:on_demand_executions",
+            (Endpoint.PROBLEMS, Endpoint.PROBLEM): "dynatrace:problem_details",
+            Endpoint.SYNTHETIC_LOCATIONS: "dynatrace:synthetic_location",
+            Endpoint.SYNTHETIC_MONITORS_HTTP: "dynatrace:synthetic_monitor",
+            Endpoint.SYNTHETIC_TESTS_ON_DEMAND: "dynatrace:on_demand_execution",
             (Endpoint.SYNTHETIC_MONITORS_HTTP, Endpoint.SYNTHETIC_MONITOR_HTTP): "dynatrace:synthetic_monitor_details"
         }
 
