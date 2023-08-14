@@ -6,3 +6,4 @@ samples
 /default/indexes.conf
 *.py[co]
 Thumbs.db
+/secrets.env/
