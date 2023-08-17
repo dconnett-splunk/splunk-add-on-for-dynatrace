@@ -137,18 +137,21 @@ class Endpoint(Enum):
             ResponseSelector('entityId'),
             None,
             PathParam('entityId'))
-    SYNTHETIC_MONITORS_HTTP_V2 = \
-        EndpointInfo(
-            URL('/api/v2/synthetic/executions'),
-            ResponseSelector('executions'),
-            Params({'schedulingFrom': '{time}'}),
-            None)
     SYNTHETIC_MONITOR_HTTP_V2 = \
         EndpointInfo(
-            URL('/api/v2/synthetic/execution/{monitorId}/SUCCESS'),
+            URL('/api/v2/synthetic/execution/{monitorId}'),
             ResponseSelector('monitorId'),
             None,
-            PathParam('monitorId'))
+            PathParam('monitorId'),
+            ["SUCCESS", "FAILED"])
+    # This is a hack because SYNTHETIC_MONITORS_HTTP returns entityIds and others return monitorIds
+    SYNTHETIC_MONITOR_ENTITY_V2 = \
+        EndpointInfo(
+            URL('/api/v2/synthetic/execution/{entityId}'),
+            ResponseSelector('entityId'),
+            None,
+            PathParam('entityId'),
+            ["SUCCESS", "FAILED"])
     SYNTHETIC_TESTS_RESULTS = \
         EndpointInfo(
             URL('/api/v2/synthetic/tests/results'),
@@ -349,13 +352,18 @@ def get_formatted_key_value_pair(key: str, value: str, params: Params) -> Tuple[
     return key, value
 
 
-def format_url_and_pop_path_params(endpoint: Endpoint, params: Params, url: URL) -> Tuple[URL, Params]:
+def format_url_and_pop_path_params(endpoint: Endpoint, url: URL, params: Params) -> Tuple[URL, Params]:
     """Format the URL and pop the URL Path parameter from the params dictionary."""
+    # print('format_url_and_pop_path_params: {}'.format(endpoint)
+    #         + ' url: {}'.format(url)
+    #         + ' params: {}'.format(params))
     if endpoint.url_path_param:
         endpoint_path_key = endpoint.url_path_param
         if endpoint_path_key in params:
             formatted_url = URL(url.format(**{endpoint_path_key: params[endpoint_path_key]}))
             new_params = Params({k: v for k, v in params.items() if k != endpoint_path_key})
+            # print('format_url_and_pop_path_params: {}'.format(formatted_url)
+            #         + ' new_params: {}'.format(new_params))
             return formatted_url, new_params
     return url, params
 
@@ -410,7 +418,7 @@ def format_params(endpoint: Endpoint, params: Params) -> Params:
 
 def build_url(endpoint: Endpoint, tenant: Tenant, params: Params) -> URL:
     url = URL(tenant + endpoint.url)
-    url, params = format_url_and_pop_path_params(endpoint, params, url)
+    url, params = format_url_and_pop_path_params(endpoint, url, params)
     return URL(url)
 
 
@@ -422,7 +430,7 @@ def prepare_dynatrace_headers(api_token, extra_headers=None):
     return {**headers, **extra_headers} if extra_headers else headers
 
 
-def prepare_dynatrace_params(base_url, params, endpoint: Endpoint, extra_params=None):
+def prepare_dynatrace_params(base_url, endpoint: Endpoint, params, extra_params=None):
     """Prepare a Dynatrace request for the given endpoint and parameters.
     Params that are expected:
         time
@@ -430,27 +438,30 @@ def prepare_dynatrace_params(base_url, params, endpoint: Endpoint, extra_params=
     """
     endpoint_url = endpoint.url
     url = base_url + endpoint_url
-    url, params = format_url_and_pop_path_params(endpoint, params, url)
+    url, prepared_params = format_url_and_pop_path_params(endpoint, url, params)
 
-    prepared_params: Params = format_params(endpoint, params)
     if endpoint == Endpoint.ENTITIES and extra_params:
         for entity_type in extra_params:
             prepared_params['entitySelector'] = entity_type
-            format_params(endpoint, prepared_params)
-            yield url, prepared_params.copy(), endpoint
+            yield url, format_params(endpoint, prepared_params), endpoint
     elif endpoint == Endpoint.METRICS_QUERY and extra_params:
         for metric_selector in extra_params:
             prepared_params['metricSelector'] = metric_selector
-            format_params(endpoint, prepared_params)
-            yield url, prepared_params.copy(), endpoint
+            yield url, format_params(endpoint, prepared_params), endpoint
     elif endpoint == Endpoint.METRICS and extra_params:
         # {'metricSelector': 'builtin:host.cpu.usage:merge(0):avg, metricselector2, etc...'}
         prepared_params['metricSelector'] = ','.join(extra_params)
-        prepared_params = format_params(endpoint, prepared_params)
-        yield url, prepared_params.copy(), endpoint
-
+        yield url, format_params(endpoint, prepared_params), endpoint
+    elif endpoint == Endpoint.SYNTHETIC_MONITOR_HTTP_V2 and endpoint.extra_params:
+        for extra_param in endpoint.extra_params:  # loop through ["SUCCESS", "FAILURE"]
+            result_url = url + "/" + extra_param  # Append the suffix
+            yield result_url, format_params(endpoint, params), endpoint
+    elif endpoint == Endpoint.SYNTHETIC_MONITOR_ENTITY_V2 and endpoint.extra_params:
+        for extra_param in endpoint.extra_params:  # loop through ["SUCCESS", "FAILURE"]
+            result_url = url + "/" + extra_param  # Append the suffix
+            yield result_url, format_params(endpoint, params), endpoint
     else:
-        yield url, prepared_params, endpoint
+        yield url, format_params(endpoint, params), endpoint
 
 
 def prepare_dynatrace_request(session: Session, url: URL, params: Params):
@@ -466,15 +477,6 @@ def remove_sensitive_info_recursive(data, keys_to_remove):
     elif isinstance(data, list):
         data = [remove_sensitive_info_recursive(item, keys_to_remove) for item in data]
     return data
-
-
-get_details_map = {
-    Endpoint.ENTITIES: Endpoint.ENTITY,
-    Endpoint.PROBLEMS: Endpoint.PROBLEM,
-    Endpoint.SYNTHETIC_MONITORS_HTTP: Endpoint.SYNTHETIC_MONITOR_HTTP,
-    Endpoint.SYNTHETIC_MONITORS_HTTP_V2: Endpoint.SYNTHETIC_MONITOR_HTTP_V2,
-}
-
 
 def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenant, api_token, params, extra_params=None,
                     opt_helper=None):
@@ -496,7 +498,7 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
         if main_endpoint.extra_params and extra_params is None:
             extra_params = main_endpoint.extra_params
 
-        prepared_params_list = prepare_dynatrace_params(tenant, params, main_endpoint, extra_params)
+        prepared_params_list = prepare_dynatrace_params(tenant, main_endpoint, params, extra_params)
 
         for result in get_dynatrace_data(session, prepared_params_list, opt_helper):
             # Check if result is a list and if so, yield each item individually
@@ -514,7 +516,7 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
                         id = record[endpoint.selector]
                         params = Params({'time': get_from_time(),
                                          endpoint.url_path_param: id})
-                        prepared_params_list = prepare_dynatrace_params(tenant, params, endpoint, extra_params)
+                        prepared_params_list = prepare_dynatrace_params(tenant, endpoint, params, extra_params)
                         for details in get_dynatrace_data(session, prepared_params_list):
                             yield details
 
@@ -523,6 +525,10 @@ def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
     for url, params, endpoint in prepared_params_list:
         prepared_request = prepare_dynatrace_request(session, url, params)
         settings = session.merge_environment_settings(prepared_request.url, {}, None, get_ssl_certificate_verification(), None)
+        # print('prepared_request: {}'.format(prepared_request))
+        # print('prepared_request.url: {}'.format(prepared_request.url))
+        # print('params: {}'.format(params))
+        # print('settings: {}'.format(settings))
 
         if opt_helper:
             opt_helper.log_debug(f'Prepared Request: {prepared_request} {prepared_request.url} {prepared_request.body}')
@@ -589,9 +595,9 @@ def parse_dynatrace_response(response: json, endpoint: Endpoint):
         return response.get(selector, response)
     # Check if monitorId is a top level key, return immediately if so this is for synthetic endpoint
     elif endpoint == Endpoint.SYNTHETIC_MONITOR_HTTP_V2 and isinstance(response, dict):
-        return MonitorExecutionResults(**response)
-    elif endpoint == Endpoint.SYNTHETIC_MONITORS_HTTP_V2:
         return response
+    # elif endpoint == Endpoint.SYNTHETIC_MONITORS_HTTP_V2:
+    #     return SyntheticOnDemandExecution(**response)
     elif endpoint == Endpoint.METRIC_DESCRIPTORS and isinstance(response, dict):
         return MetricDescriptor(**response)
     elif endpoint == Endpoint.ENTITY and isinstance(response, dict):

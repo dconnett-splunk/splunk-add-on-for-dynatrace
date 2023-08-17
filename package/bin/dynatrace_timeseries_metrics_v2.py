@@ -144,6 +144,8 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                 data = metric_series_collection.get('data')
                 unit, aggregation_types = metric_descriptor_mapping.get(metric_id, (None, None))
                 for metric_series in data:
+                    dimensions = metric_series.get('dimensions')
+                    dimension_map = metric_series.get('dimensionMap')
                     for timestamp, value in zip(metric_series.get('timestamps'), metric_series.get('values')):
                         event_data = {
                             'timestamp': timestamp,
@@ -152,7 +154,9 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                             'unit': unit,
                             'aggregation_types': aggregation_types,
                             'dynatraceTenant': tenant,
-                            'resolution': resolution
+                            'resolution': resolution,
+                            'dimensions': dimensions,
+                            'dimension_map': dimension_map
                         }
                         serialized = json.dumps(event_data)
                         event = helper.new_event(data=serialized, time=timestamp, index=index)

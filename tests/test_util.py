@@ -88,7 +88,7 @@ def request_info_generator():
         if endpoint.url_path_param:
             params = Params({endpoint.url_path_param: "Computer1234"})
             print(f'request_info_generator() params: {params}')
-            expected_url, new_params = util.format_url_and_pop_path_params(endpoint, params, expected_url)
+            expected_url, new_params = util.format_url_and_pop_path_params(endpoint, expected_url, params)
 
         yield endpoint, tenant, api_token, time, params, extra_params, expected_url
 
@@ -198,7 +198,7 @@ class TestUtil(unittest.TestCase):
             print(f'generated params: {params}')
             print(f'extra_params: {extra_params}')
 
-            result = util.prepare_dynatrace_params(base_url=tenant, params=params, endpoint=endpoint_outer,
+            result = util.prepare_dynatrace_params(base_url=tenant, endpoint=endpoint_outer, params=params,
                                                    extra_params=extra_params)
             print(f'generate_dynatrace_params() result: {result}')
             for url, prepared_params, endpoint in result:
@@ -263,7 +263,7 @@ class TestUtil(unittest.TestCase):
         expected_url = "https://example.com/api/v2/1234"
         expected_params = {"name": "test"}
 
-        result_url, result_params = util.format_url_and_pop_path_params(endpoint, params, url)
+        result_url, result_params = util.format_url_and_pop_path_params(endpoint, url, params)
         print()
         print(f"result_url: {result_url}")
         print(f"result_params: {result_params}")
@@ -286,7 +286,7 @@ class TestUtil(unittest.TestCase):
                 params = Params({**params, **endpoint.params})
                 print(f'params: {params}')
 
-            result_url, result_params = util.format_url_and_pop_path_params(endpoint, params, url)
+            result_url, result_params = util.format_url_and_pop_path_params(endpoint, url, params)
             print(f"result_url: {result_url}")
             print(f"result_params: {result_params}")
 
@@ -312,7 +312,7 @@ class TestUtil(unittest.TestCase):
             print(f'formatted_params after formatting: {formatted_params}')
 
             # Formatting the URL and popping the path parameters
-            result_url, result_params = util.format_url_and_pop_path_params(endpoint, formatted_params, url)
+            result_url, result_params = util.format_url_and_pop_path_params(endpoint, url, formatted_params)
             print(f"result_url: {result_url}")
             print(f"result_params: {result_params}")
 
@@ -363,11 +363,36 @@ class TestUtil(unittest.TestCase):
             print(f'url: {url}')
             self.assertEqual(expected_url, url)
 
+    def test_prepare_dynatrace_params2(self):
+        for endpoint in Endpoint:
+            print()
+            tenant = "https://localhost:12345"
+            url = URL(tenant + endpoint.url)
+            params = Params({"time": "1234", "name": "test"})
+            extra_params = None
+            print(f'starting url: {url}')
+            print(f'starting params: {params}')
+
+            if endpoint.url_path_param:
+                params[endpoint.url_path_param] = "Computer1234"
+                print(f'params after adding url_path_param: {params}')
+
+            if endpoint.extra_params:
+                extra_params = endpoint.extra_params
+                print(f'extra_params: {extra_params}')
+
+            for url, prepared_params, endpoint in util.prepare_dynatrace_params(tenant, endpoint, params, extra_params):
+                print(f'url: {url}')
+                print(f'prepared_params: {prepared_params}')
+                print(f'endpoint: {endpoint}')
+                result_url, result_params, result_endpoint = url, prepared_params, endpoint
+
+
     def test_prepare_dynatrace_request(self):
         for endpoint, tenant, api_token, time, params, extra_params, expected_url in request_info_generator():
             print()
             print('=' * 100)
-            prepared_params = util.prepare_dynatrace_params(base_url=tenant, params=params, endpoint=endpoint,
+            prepared_params = util.prepare_dynatrace_params(base_url=tenant, endpoint=endpoint, params=params,
                                                             extra_params=extra_params)
             for url, prepared_params, endpoint in prepared_params:
                 print('-' * 100)
@@ -424,7 +449,7 @@ class TestUtil(unittest.TestCase):
             print(f'extra_params: {extra_params}')
             print(f'expected_url: {expected_url}')
             params = {'time': time}
-            prepared_params_list = util.prepare_dynatrace_params(tenant, params, endpoint, extra_params)
+            prepared_params_list = util.prepare_dynatrace_params(tenant, endpoint, params, extra_params)
 
             prepared_headers = util.prepare_dynatrace_headers(api_token)
             with requests.Session() as session:
@@ -594,9 +619,21 @@ class TestUtil(unittest.TestCase):
             print(f'synthetic: {synthetic}')
 
 
-    def test_execute_session_syntheticv2(self):
+    def test_synthetic_monitors_v2(self):
         print()
-        endpoint = Endpoint.SYNTHETIC_MONITORS_HTTP_V2
+        endpoint = Endpoint.SYNTHETIC_TESTS_ON_DEMAND
+        secrets = util.parse_secrets_env()
+        tenant = secrets['dynatrace_tenant']
+        api_token = secrets['dynatrace_api_token']
+        params = Params({'time': util.get_from_time()})
+
+        result = util.execute_session(endpoint, tenant, api_token, params)
+        for synthetic in result:
+            print(f'synthetic: {synthetic}')
+
+    def test_synthetic_monitors_details_hack_v2(self):
+        print()
+        endpoint = (Endpoint.SYNTHETIC_MONITORS_HTTP, Endpoint.SYNTHETIC_MONITOR_ENTITY_V2)
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
@@ -835,7 +872,7 @@ class TestMetricsUtil(unittest.TestCase):
 
     def test_metric_execute_session(self):
         print()
-        metric_selectors_from_file = """builtin:synthetic.http.execution.status
+        metric_selectors_from_file = """builtin:host.cpu.iowait
         builtin:synthetic.http.dns.geo
         builtin:synthetic.http.request.tlsHandshakeTime.geo"""
         metric_selectors: list[MetricSelector] = dt_metrics.parse_metric_selectors_text_area(metric_selectors_from_file)
@@ -868,6 +905,8 @@ class TestMetricsUtil(unittest.TestCase):
                 data = metric_series_collection.get('data')
                 unit, aggregation_types = metric_descriptor_mapping.get(metric_id, (None, None))
                 for metric_series in data:
+                    dimensions = metric_series.get('dimensions')
+                    dimension_map = metric_series.get('dimensionMap')
                     for timestamp, value in zip(metric_series.get('timestamps'), metric_series.get('values')):
                         print({
                             'timestamp': timestamp,
@@ -876,7 +915,9 @@ class TestMetricsUtil(unittest.TestCase):
                             'unit': unit,
                             'aggregation_types': aggregation_types,
                             'dynatraceTenant': tenant,
-                            'resolution': resolution
+                            'resolution': resolution,
+                            'dimensions': dimensions,
+                            'dimension_map': dimension_map
                         })
 
 
