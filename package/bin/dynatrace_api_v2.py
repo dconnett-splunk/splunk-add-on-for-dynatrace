@@ -121,11 +121,13 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
             Endpoint.SYNTHETIC_LOCATIONS: "dynatrace:synthetic_location",
             Endpoint.SYNTHETIC_MONITORS_HTTP: "dynatrace:synthetic_monitor",
             Endpoint.SYNTHETIC_TESTS_ON_DEMAND: "dynatrace:on_demand_execution",
-            (Endpoint.SYNTHETIC_MONITORS_HTTP, Endpoint.SYNTHETIC_MONITOR_HTTP): "dynatrace:synthetic_monitor_details"
+            (Endpoint.SYNTHETIC_MONITORS_HTTP, Endpoint.SYNTHETIC_MONITOR_HTTP): "dynatrace:synthetic_monitor_details",
+            (Endpoint.SYNTHETIC_MONITORS_HTTP, Endpoint.SYNTHETIC_MONITOR_ENTITY_V2): "dynatrace:synthetic_monitor_entity_details"
         }
 
         keys_to_remove = ['responseBody', 'peerCertificateDetails']
         sourcetype = sourcetype_mapping.get(endpoint, None)
+        helper.log_debug('sourcetype: {}'.format(sourcetype))
 
         params = {'time': time_start}
         dynatrace_data = util.execute_session(endpoint, opt_dynatrace_tenant, opt_dynatrace_api_token, params, opt_helper=helper)
