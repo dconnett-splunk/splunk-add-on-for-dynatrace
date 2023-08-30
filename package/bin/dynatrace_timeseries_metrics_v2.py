@@ -163,30 +163,31 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                         ew.write_event(event)
 
     def get_account_fields(self):
-        account_fields= []
+        account_fields = []
         account_fields.append("dynatrace_account")
         return account_fields
 
     def get_checkbox_fields(self):
-        checkbox_fields= []
+        checkbox_fields = []
         checkbox_fields.append("ssl_certificate_verification")
         return checkbox_fields
 
     def get_global_checkbox_fields(self):
         if self.global_checkbox_fields is None:
-            checkbox_name_file= os.path.join(bin_dir, 'global_checkbox_param.json')
+            checkbox_name_file = os.path.join(bin_dir, 'global_checkbox_param.json')
             try:
                 if os.path.isfile(checkbox_name_file):
                     with open(checkbox_name_file, 'r') as fp:
-                        self.global_checkbox_fields= json.load(fp)
+                        self.global_checkbox_fields = json.load(fp)
                 else:
-                    self.global_checkbox_fields= []
+                    self.global_checkbox_fields = []
             except Exception as e:
                 self.log_error(
                     'Get exception when loading global checkbox parameter names. ' + str(e))
-                self.global_checkbox_fields= []
+                self.global_checkbox_fields = []
         return self.global_checkbox_fields
 
+
 if __name__ == "__main__":
-    exitcode= ModInputdynatrace_timeseries_metrics_v2().run(sys.argv)
+    exitcode = ModInputdynatrace_timeseries_metrics_v2().run(sys.argv)
     sys.exit(exitcode)
