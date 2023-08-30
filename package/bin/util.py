@@ -478,6 +478,7 @@ def remove_sensitive_info_recursive(data, keys_to_remove):
         data = [remove_sensitive_info_recursive(item, keys_to_remove) for item in data]
     return data
 
+
 def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenant, api_token, params, extra_params=None,
                     opt_helper=None):
     params = Params(params)
@@ -524,7 +525,7 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
 def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
     for url, params, endpoint in prepared_params_list:
         prepared_request = prepare_dynatrace_request(session, url, params)
-        settings = session.merge_environment_settings(prepared_request.url, {}, None, get_ssl_certificate_verification(), None)
+        settings = session.merge_environment_settings(prepared_request.url, {}, None, get_ssl_certificate_verification(opt_helper), None)
         # print('prepared_request: {}'.format(prepared_request))
         # print('prepared_request.url: {}'.format(prepared_request.url))
         # print('params: {}'.format(params))
@@ -646,7 +647,6 @@ def get_ssl_certificate_verification(helper=None):
     if helper:
         helper.log_debug('user_uploaded_certificate: {}'.format(user_uploaded_certificate))
 
-    # This is commented out for now, as requested
     # if 'SPLUNK_HOME' in os.environ:
     #     splunk_cert_dir = os.path.join(os.environ['SPLUNK_HOME'], 'etc', 'auth')
     #     os.environ['REQUESTS_CA_BUNDLE'] = splunk_cert_dir
