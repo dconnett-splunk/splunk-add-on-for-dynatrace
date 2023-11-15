@@ -17,7 +17,7 @@ from requests.models import Response, PreparedRequest, Request
 
 import package.bin.metrics_util as dt_metrics
 import package.bin.util as util
-import pickle_test_inputs
+#import pickle_test_inputs
 from package.bin.util import Endpoint
 from dynatrace_types import *
 

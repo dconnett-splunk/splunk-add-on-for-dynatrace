@@ -67,7 +67,8 @@ class Endpoint(Enum):
         EndpointInfo(
             URL('/api/v2/metrics/query'),
             ResponseSelector('result'),
-            Params({'metricSelector': '{metricSelector}'}),
+            Params({'writtenSince': '{time}',
+                    'metricSelector': '{metricSelector}'}),
             None)
     METRIC_DESCRIPTORS = \
         EndpointInfo(
@@ -79,7 +80,8 @@ class Endpoint(Enum):
         EndpointInfo(
             URL('/api/v2/entities'),
             ResponseSelector('entities'),
-            Params({'entitySelector': 'type(\"{entitySelector}\")'}),
+            Params({'entitySelector': 'type(\"{entitySelector}\")',
+                    'from': '{time}'}),
             None,
             ["HOST", "PROCESS_GROUP_INSTANCE", "PROCESS_GROUP", "APPLICATION", "SERVICE", "SYNTHETIC_TEST",
              "SYNTHETIC_TEST_STEP"])
@@ -87,7 +89,7 @@ class Endpoint(Enum):
         EndpointInfo(
             URL('/api/v2/entities/{entityId}'),
             ResponseSelector("entityId"),
-            None,
+            Params({'from': '{time}'}),
             PathParam('entityId'))
     PROBLEM = \
         EndpointInfo(
