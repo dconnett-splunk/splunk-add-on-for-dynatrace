@@ -105,7 +105,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         opt_ssl_certificate_verification = util.get_ssl_certificate_verification(helper)
         index = helper.get_arg("index")
 
-        time_start = util.get_from_time(opt_dynatrace_collection_interval_minutes)
+        time_start = util.get_from_time_utc(opt_dynatrace_collection_interval_minutes)
 
         # Set a default list of entity types for the 'entities' endpoint
         # TODO - Need to make this configurable

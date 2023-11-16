@@ -131,7 +131,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                 aggregation_types = metric.get('aggregationTypes')
                 metric_descriptor_mapping[metric_id] = (unit, aggregation_types)
 
-        params = {'time': util.get_from_time(opt_dynatrace_collection_interval_minutes)}
+        params = {'time': util.get_from_time_utc(opt_dynatrace_collection_interval_minutes)}
 
         metric_data_list = list(
             util.execute_session(Endpoint.METRICS_QUERY, tenant, api_token, params, extra_params=metric_selectors, opt_helper=helper))
