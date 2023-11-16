@@ -67,7 +67,7 @@ class Endpoint(Enum):
         EndpointInfo(
             URL('/api/v2/metrics/query'),
             ResponseSelector('result'),
-            Params({'writtenSince': '{time}',
+            Params({'from': '{time}',
                     'metricSelector': '{metricSelector}'}),
             None)
     METRIC_DESCRIPTORS = \
@@ -101,13 +101,13 @@ class Endpoint(Enum):
         EndpointInfo(
             URL('/api/v2/problems'),
             ResponseSelector('problems'),
-            None,
+            Params({'from': '{time}'}),
             None)
     EVENTS = \
         EndpointInfo(
             URL('/api/v2/events'),
             ResponseSelector('events'),
-            None,
+            Params({'from': '{time}'}),
             None)
     SYNTHETIC_LOCATIONS = \
         EndpointInfo(
