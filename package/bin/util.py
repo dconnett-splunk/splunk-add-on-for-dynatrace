@@ -517,7 +517,7 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
                 if result:
                     for record in result:
                         id = record[endpoint.selector]
-                        params = Params({'time': get_from_time_utc(),
+                        params = Params({'time': get_from_time(),
                                          endpoint.url_path_param: id})
                         prepared_params_list = prepare_dynatrace_params(tenant, endpoint, params, extra_params)
                         for details in get_dynatrace_data(session, prepared_params_list):

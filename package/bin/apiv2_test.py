@@ -18,7 +18,7 @@ print(f'dynatrace_tenant: {dynatrace_tenant}')
 print(f'dynatrace_api_token: {dynatrace_api_token}')
 
 minutes = CollectionInterval(1000)
-time_range = get_from_time_utc(minutes)
+time_range = get_from_time(minutes)
 
 session = create_session(dynatrace_tenant, dynatrace_api_token)
 
