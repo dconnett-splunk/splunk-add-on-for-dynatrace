@@ -146,6 +146,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                 for metric_series in data:
                     dimensions = metric_series.get('dimensions')
                     dimension_map = metric_series.get('dimensionMap')
+                    timestamp_id = 1 # Idea to avoid too many events (100K) with the same timestamp
                     for timestamp, value in zip(metric_series.get('timestamps'), metric_series.get('values')):
                         event_data = {
                             'timestamp': timestamp,
@@ -159,8 +160,9 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
                             'dimension_map': dimension_map
                         }
                         serialized = json.dumps(event_data)
-                        event = helper.new_event(data=serialized, time=timestamp, index=index)
+                        event = helper.new_event(data=serialized, time=timestamp + timestamp_id, index=index)
                         ew.write_event(event)
+                        timestamp_id += 1
 
     def get_account_fields(self):
         account_fields= []
