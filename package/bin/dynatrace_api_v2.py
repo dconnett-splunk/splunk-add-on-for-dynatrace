@@ -3,6 +3,7 @@ import sys
 import time
 import datetime
 import json
+import uuid
 
 bin_dir = os.path.basename(__file__)
 
@@ -39,6 +40,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
 
     def __init__(self):
         use_single_instance = False
+        correlation_id = uuid.uuid4()
         super(ModInputdynatrace_api_v2, self).__init__("splunk_ta_dynatrace", "dynatrace_api_v2", use_single_instance)
         self.global_checkbox_fields = None
 
@@ -115,6 +117,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         # Will also need to change strings in the apiv2.py file and the util.py selectors and enpoints
         sourcetype_mapping = {
             Endpoint.ENTITIES: "dynatrace:entity",
+            (Endpoint.ENTITIES, Endpoint.ENTITY): "dynatrace:entity_details",
             Endpoint.EVENTS: "dynatrace:event",
             Endpoint.PROBLEMS: "dynatrace:problem",
             (Endpoint.PROBLEMS, Endpoint.PROBLEM): "dynatrace:problem_details",
@@ -130,11 +133,13 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         helper.log_debug('sourcetype: {}'.format(sourcetype))
 
         params = {'time': time_start}
+        helper.log_info(f"correlation_id: {helper.correlation_id}, executing session for endpoint: {endpoint}")
         dynatrace_data = util.execute_session(endpoint, opt_dynatrace_tenant, opt_dynatrace_api_token, params, opt_helper=helper)
 
         helper.log_debug('dynatrace_tenant: {}'.format(opt_dynatrace_tenant))
         helper.log_debug('dynatrace_collection_interval: {}'.format(opt_dynatrace_collection_interval_minutes))
 
+        counter = 0
         if dynatrace_data:
             for record in dynatrace_data:
                 helper.log_debug('record: {}'.format(record))
@@ -142,8 +147,12 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
                 event = helper.new_event(data=serialized, host=None, index=index, source=None,
                                          sourcetype=sourcetype, done=True, unbroken=True)
                 ew.write_event(event)
+                counter += 1
         else:
             helper.log_warning(f'No data returned from Dynatrace API for endpoint: {endpoint}')
+
+        helper.log_info(f"correlation_id: {helper.correlation_id}, {counter} events written to index: {index}")
+
 
     def get_account_fields(self):
         account_fields = []
