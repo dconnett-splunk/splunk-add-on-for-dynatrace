@@ -504,7 +504,8 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
 
         prepared_params_list = prepare_dynatrace_params(tenant, main_endpoint, params, extra_params)
 
-        counter = {'session_loop_count': 0, 'item_count': 0, 'result_count': 0, 'detail_count': 0}
+        counter = {'session_loop_count': 0, 'item_count': 0, 'result_count': 0, 'detail_count': 0,
+                   'item_size': 0, 'result_size': 0, 'detail_size': 0}
         for result in get_dynatrace_data(session, prepared_params_list, opt_helper):
             # Check if result is a list and if so, yield each item individually
             # Only do this if there are no detail endpoints
@@ -512,9 +513,11 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
             if not detail_endpoints and isinstance(result, list):
                 for item in result:
                     counter['item_count'] += 1
+                    counter['item_size'] += len(json.dumps(item))
                     yield item
             elif not detail_endpoints:
                 counter['result_count'] += 1
+                counter['result_size'] += len(json.dumps(result))
                 yield result
 
             # Process the detailed endpoints, if any
@@ -522,6 +525,7 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
                 if result:
                     for record in result:
                         counter['detail_count'] += 1
+                        counter['detail_size'] += len(json.dumps(record))
                         id = record[endpoint.selector]
                         params = Params({'time': get_from_time(),
                                          endpoint.url_path_param: id})
