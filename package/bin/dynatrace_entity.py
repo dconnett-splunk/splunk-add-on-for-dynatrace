@@ -37,7 +37,7 @@ class ModInputdynatrace_entity(base_mi.BaseModInput):
 
     def __init__(self):
         use_single_instance = False
-        correlation_id = uuid.uuid4()
+        self.correlation_id = uuid.uuid4()
         super(ModInputdynatrace_entity, self).__init__("splunk_ta_dynatrace", "dynatrace_entity", use_single_instance)
         self.global_checkbox_fields = None
 
