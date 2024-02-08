@@ -539,7 +539,16 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
 def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
     for url, params, endpoint in prepared_params_list:
         prepared_request = prepare_dynatrace_request(session, url, params)
-        settings = session.merge_environment_settings(prepared_request.url, {}, None, get_ssl_certificate_verification(opt_helper), None)
+        # Get the proxy URI
+        proxy_uri = opt_helper._get_proxy_uri() if opt_helper else None
+
+        # Convert the proxy URI into a dictionary format expected by merge_environment_settings
+        proxies = {}
+        if proxy_uri:
+            # Assuming the proxy is HTTP; adjust if necessary for HTTPS or other types
+            proxies = {"http": proxy_uri, "https": proxy_uri}
+
+        settings = session.merge_environment_settings(prepared_request.url, proxies, None, get_ssl_certificate_verification(opt_helper), None)
         # print('prepared_request: {}'.format(prepared_request))
         # print('prepared_request.url: {}'.format(prepared_request.url))
         # print('params: {}'.format(params))
