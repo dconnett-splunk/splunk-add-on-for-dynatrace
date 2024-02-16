@@ -568,8 +568,9 @@ def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: di
             if 'nextPageKey' not in response_json or response_json['nextPageKey'] is None:
                 break
 
-            # Re-prepare the URL using the updated params
-            prepared_request.prepare_url(base_url, {'nextPageKey': response_json['nextPageKey']})
+            # Remove all params except for nextPageKey
+            next_url = prepared_request.url.split('?')[0]
+            prepared_request.prepare_url(next_url, {'nextPageKey': response_json['nextPageKey']})
 
         except requests.exceptions.HTTPError as err:
             if opt_helper:
