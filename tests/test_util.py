@@ -17,7 +17,7 @@ from requests.models import Response, PreparedRequest, Request
 
 import package.bin.metrics_util as dt_metrics
 import package.bin.util as util
-import pickle_test_inputs
+#import pickle_test_inputs
 from package.bin.util import Endpoint
 from dynatrace_types import *
 
@@ -66,11 +66,16 @@ def get_example_from_spec(spec, path, method='get', response_code='200'):
     except IndexError:
         return None
 
+def get_method_parameters_from_spec(spec, path, method='get'):
+    """Get method parameters from the OpenAPI spec for a certain path and method"""
+
+    return spec.get('paths', {}).get(path, {}).get(method, {}).get('parameters', {})
+
 
 def request_info_generator():
     """Generate request info for util.prepare_dynatrace_request()"""
     print('request_info_generator() called')
-    time = util.get_from_time()
+    time = util.get_from_time_utc()
     tenant = "http://localhost:12345"
     api_token = "test_token"
 
@@ -180,7 +185,7 @@ class TestUtil(unittest.TestCase):
 
     @staticmethod
     def generate_dynatrace_params():
-        time = util.get_from_time()
+        time = util.get_from_time_utc()
 
         api_token = "test_token"
         print()
@@ -387,33 +392,60 @@ class TestUtil(unittest.TestCase):
                 print(f'endpoint: {endpoint}')
                 result_url, result_params, result_endpoint = url, prepared_params, endpoint
 
-
     def test_prepare_dynatrace_request(self):
         for endpoint, tenant, api_token, time, params, extra_params, expected_url in request_info_generator():
-            print()
-            print('=' * 100)
+            # Add time to params, unless it's v1 or one of the endpoints that doesn't take time.
+            if "api/v1" not in endpoint.url:
+                if endpoint not in [Endpoint.METRIC_DESCRIPTORS,
+                                    Endpoint.PROBLEM,
+                                    Endpoint.SYNTHETIC_LOCATIONS,
+                                    Endpoint.SYNTHETIC_TEST_ON_DEMAND,
+                                    Endpoint.SYNTHETIC_MONITOR_HTTP,
+                                    Endpoint.SYNTHETIC_MONITOR_HTTP_V2,
+                                    Endpoint.SYNTHETIC_MONITOR_ENTITY_V2,
+                                    Endpoint.SYNTHETIC_TESTS_RESULTS]:
+                    params = {'time': time}
             prepared_params = util.prepare_dynatrace_params(base_url=tenant, endpoint=endpoint, params=params,
                                                             extra_params=extra_params)
-            for url, prepared_params, endpoint in prepared_params:
-                print('-' * 100)
-                headers = util.prepare_dynatrace_headers(api_token)
-                request: Request = requests.Request('GET', url, headers=headers, params=prepared_params)
-                with requests.Session() as session:
-                    prepared_request = util.prepare_dynatrace_request(session, url, prepared_params)
-                    print(f'url: {prepared_request.url}')
-                    print(f'headers: {prepared_request.headers}')
-                    print(f'body: {prepared_request.body}')
-                    if session.params:
-                        print(f'params: {session.params}')
+            with self.subTest(iteration=endpoint.url):
+                for url, prepared_params, endpoint in prepared_params:
+                    print('-' * 100)
+                    headers = util.prepare_dynatrace_headers(api_token)
+                    request: Request = requests.Request('GET', url, headers=headers, params=prepared_params)
+                    with requests.Session() as session:
+                        prepared_request = util.prepare_dynatrace_request(session, url, prepared_params)
+                        print(f'  url: {prepared_request.url}')
+                        print(f'  headers: {prepared_request.headers}')
+                        print(f'  body: {prepared_request.body}')
+                        if session.params:
+                            print(f'  params: {session.params}')
 
-                    settings = session.merge_environment_settings(prepared_request.url, {}, None, None, None)
+                        settings = session.merge_environment_settings(prepared_request.url, {}, None, None, None)
 
-                    print(f"prepared_request: {prepared_request}")
+                        print(f"  prepared_request: {prepared_request}")
 
-                    # Create a mock response
-                    mock_response = Response()
-                    mock_response.status_code = 200
-                    mock_response._content = b'{"key": "value"}'
+                        # Create a mock response
+                        mock_response = Response()
+                        mock_response.status_code = 200
+                        mock_response._content = b'{"key": "value"}'
+
+                        stripped_url = endpoint.url.replace("/api/v2", "", 1)
+                        spec_method_params = get_method_parameters_from_spec(self.spec, stripped_url)
+                        spec_param_names = [d['name'] for d in spec_method_params if 'name' in d]
+
+                        print(f"  spec_param_names: {spec_param_names}")
+
+                        # Assert that all the params are in tne method_params from the oas spec
+                        # TODO: This test breaks on synthetic endpoints due to entityId being used instead of executionId
+                        # This shouldn't affect the functionality of the script, but it should be fixed
+                        for param in prepared_params:
+                            # Print the params that were compared to each Unittests subtest:
+                            print(f"  assert param: '{param}' is in spec_param_names")
+                            self.assertIn(param, spec_param_names, f"from endpoint {endpoint}")
+
+                        print()
+                        print('=' * 100)
+
 
     def test_parse_dynatrace_response(self):
         file_paths = sorted(pickled_test_inputs())
@@ -465,6 +497,8 @@ class TestUtil(unittest.TestCase):
                 stripped_url = endpoint.url.replace("/api/v2", "", 1)
                 print(f'endpoint url: {stripped_url}')
                 expected_result = get_example_from_spec(self.spec, stripped_url)
+
+                # TODO: Get examples responses from every endpoint and compare them to the spec
                 self.assertEqual(expected_result, expected_result)
 
     def test_merge_endpoint_params_synthetic(self):
@@ -575,7 +609,7 @@ class TestUtil(unittest.TestCase):
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
-        params = Params({'time': util.get_from_time()})
+        params = Params({'time': util.get_from_time_utc()})
 
         result = util.execute_session(endpoint, tenant, api_token, params)
         for entity in result:
@@ -587,7 +621,7 @@ class TestUtil(unittest.TestCase):
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
-        params = Params({'time': util.get_from_time()})
+        params = Params({'time': util.get_from_time_utc()})
 
         result = util.execute_session(endpoint, tenant, api_token, params)
         for problem in result:
@@ -600,7 +634,7 @@ class TestUtil(unittest.TestCase):
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
-        params = Params({'time': util.get_from_time()})
+        params = Params({'time': util.get_from_time_utc()})
 
         result = util.execute_session(endpoint, tenant, api_token, params, opt_helper=mock_helper)
         for problem in result:
@@ -612,7 +646,7 @@ class TestUtil(unittest.TestCase):
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
-        params = Params({'time': util.get_from_time()})
+        params = Params({'time': util.get_from_time_utc()})
 
         result = util.execute_session(endpoint, tenant, api_token, params)
         for synthetic in result:
@@ -625,7 +659,7 @@ class TestUtil(unittest.TestCase):
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
-        params = Params({'time': util.get_from_time()})
+        params = Params({'time': util.get_from_time_utc()})
 
         result = util.execute_session(endpoint, tenant, api_token, params)
         for synthetic in result:
@@ -637,7 +671,7 @@ class TestUtil(unittest.TestCase):
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
-        params = Params({'time': util.get_from_time()})
+        params = Params({'time': util.get_from_time_utc()})
 
         result = util.execute_session(endpoint, tenant, api_token, params)
         for synthetic in result:
@@ -649,7 +683,7 @@ class TestUtil(unittest.TestCase):
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
-        params = Params({'time': util.get_from_time()})
+        params = Params({'time': util.get_from_time_utc()})
 
         result = util.execute_session(endpoint, tenant, api_token, params)
         for synthetic in result:
@@ -661,7 +695,7 @@ class TestUtil(unittest.TestCase):
         secrets = util.parse_secrets_env()
         tenant = secrets['dynatrace_tenant']
         api_token = secrets['dynatrace_api_token']
-        params = Params({'time': util.get_from_time()})
+        params = Params({'time': util.get_from_time_utc()})
 
         result = util.execute_session(endpoint, tenant, api_token, params)
         for synthetic in result:

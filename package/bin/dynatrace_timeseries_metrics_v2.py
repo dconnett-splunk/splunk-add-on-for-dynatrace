@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import uuid
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
@@ -55,6 +56,7 @@ class ModInputdynatrace_timeseries_metrics_v2(base_mi.BaseModInput):
 
     def __init__(self):
         use_single_instance = False
+        self.correlation_id = uuid.uuid4()
         super(ModInputdynatrace_timeseries_metrics_v2, self).__init__("splunk_ta_dynatrace", "dynatrace_timeseries_metrics_v2", use_single_instance)
         self.global_checkbox_fields = None
 

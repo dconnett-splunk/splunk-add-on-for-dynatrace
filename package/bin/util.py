@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Tuple, Optional
 import pickle
+from uuid import UUID
 import urllib3
 from pathlib import Path
 import shutil
@@ -67,7 +68,8 @@ class Endpoint(Enum):
         EndpointInfo(
             URL('/api/v2/metrics/query'),
             ResponseSelector('result'),
-            Params({'metricSelector': '{metricSelector}'}),
+            Params({'from': '{time}',
+                    'metricSelector': '{metricSelector}'}),
             None)
     METRIC_DESCRIPTORS = \
         EndpointInfo(
@@ -79,7 +81,8 @@ class Endpoint(Enum):
         EndpointInfo(
             URL('/api/v2/entities'),
             ResponseSelector('entities'),
-            Params({'entitySelector': 'type(\"{entitySelector}\")'}),
+            Params({'entitySelector': 'type(\"{entitySelector}\")',
+                    'from': '{time}'}),
             None,
             ["HOST", "PROCESS_GROUP_INSTANCE", "PROCESS_GROUP", "APPLICATION", "SERVICE", "SYNTHETIC_TEST",
              "SYNTHETIC_TEST_STEP"])
@@ -87,7 +90,7 @@ class Endpoint(Enum):
         EndpointInfo(
             URL('/api/v2/entities/{entityId}'),
             ResponseSelector("entityId"),
-            None,
+            Params({'from': '{time}'}),
             PathParam('entityId'))
     PROBLEM = \
         EndpointInfo(
@@ -99,13 +102,13 @@ class Endpoint(Enum):
         EndpointInfo(
             URL('/api/v2/problems'),
             ResponseSelector('problems'),
-            None,
+            Params({'from': '{time}'}),
             None)
     EVENTS = \
         EndpointInfo(
             URL('/api/v2/events'),
             ResponseSelector('events'),
-            None,
+            Params({'from': '{time}'}),
             None)
     SYNTHETIC_LOCATIONS = \
         EndpointInfo(
@@ -501,31 +504,51 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
 
         prepared_params_list = prepare_dynatrace_params(tenant, main_endpoint, params, extra_params)
 
+        counter = {'session_loop_count': 0, 'item_count': 0, 'result_count': 0, 'detail_count': 0,
+                   'item_size': 0, 'result_size': 0, 'detail_size': 0}
         for result in get_dynatrace_data(session, prepared_params_list, opt_helper):
             # Check if result is a list and if so, yield each item individually
             # Only do this if there are no detail endpoints
+            counter['session_loop_count'] += 1
             if not detail_endpoints and isinstance(result, list):
                 for item in result:
+                    counter['item_count'] += 1
+                    counter['item_size'] += len(json.dumps(item))
                     yield item
             elif not detail_endpoints:
+                counter['result_count'] += 1
+                counter['result_size'] += len(json.dumps(result))
                 yield result
 
             # Process the detailed endpoints, if any
             for endpoint in detail_endpoints:
                 if result:
                     for record in result:
+                        counter['detail_count'] += 1
+                        counter['detail_size'] += len(json.dumps(record))
                         id = record[endpoint.selector]
                         params = Params({'time': get_from_time(),
                                          endpoint.url_path_param: id})
                         prepared_params_list = prepare_dynatrace_params(tenant, endpoint, params, extra_params)
                         for details in get_dynatrace_data(session, prepared_params_list):
                             yield details
+        if opt_helper:
+            opt_helper.log_debug(f'correlation_id: {opt_helper.correlation_id}, session_counters: {counter}')
 
 
 def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
     for url, params, endpoint in prepared_params_list:
         prepared_request = prepare_dynatrace_request(session, url, params)
-        settings = session.merge_environment_settings(prepared_request.url, {}, None, get_ssl_certificate_verification(opt_helper), None)
+        # Get the proxy URI
+        proxy_uri = opt_helper._get_proxy_uri() if opt_helper else None
+
+        # Convert the proxy URI into a dictionary format expected by merge_environment_settings
+        proxies = {}
+        if proxy_uri:
+            # Assuming the proxy is HTTP; adjust if necessary for HTTPS or other types
+            proxies = {"http": proxy_uri, "https": proxy_uri}
+
+        settings = session.merge_environment_settings(prepared_request.url, proxies, None, get_ssl_certificate_verification(opt_helper), None)
         # print('prepared_request: {}'.format(prepared_request))
         # print('prepared_request.url: {}'.format(prepared_request.url))
         # print('params: {}'.format(params))
@@ -563,6 +586,11 @@ def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: di
             if opt_helper:
                 opt_helper.log_debug(f'Parsed response: {response_json}')
 
+                # If totalCount is in the response, log it
+                if 'totalCount' in response_json:
+                    opt_helper.log_info(f'correlation_id: {opt_helper.correlation.id}, '
+                                        f'dynatrace_json_response_size: {response_json["totalCount"]}')
+
             yield response_json
 
             if 'nextPageKey' not in response_json or response_json['nextPageKey'] is None:
@@ -575,7 +603,7 @@ def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: di
         except requests.exceptions.HTTPError as err:
             if opt_helper:
                 # Log the status code and error message
-                opt_helper.log_error(f'HTTP Error: {err}')
+                opt_helper.log_error(f'correlation_id: {opt_helper.correlation_id}, HTTP Error: {err}')
 
                 # If the server sent a response, log the response body
                 if err.response is not None:
@@ -584,7 +612,7 @@ def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: di
 
         except Exception as e:
             if opt_helper:
-                opt_helper.log_error(f'Unexpected error: {e}')
+                opt_helper.log_error(f'Unexpected error: {e}, correlation_id {opt_helper.correlation_id}' )
             break
 
 
