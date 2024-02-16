@@ -533,7 +533,7 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
                         for details in get_dynatrace_data(session, prepared_params_list):
                             yield details
         if opt_helper:
-            opt_helper.log_debug(f'correlation_id: {opt_helper.correlation_id}, session_counters: {counter}')
+            opt_helper.log_info(f'correlation_id: {opt_helper.correlation_id}, session_counters: {counter}')
 
 
 def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
@@ -588,7 +588,7 @@ def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: di
 
                 # If totalCount is in the response, log it
                 if 'totalCount' in response_json:
-                    opt_helper.log_info(f'correlation_id: {opt_helper.correlation.id}, '
+                    opt_helper.log_info(f'correlation_id: {opt_helper.correlation_id}, '
                                         f'dynatrace_json_response_size: {response_json["totalCount"]}')
 
             yield response_json
