@@ -1,0 +1,7 @@
+builtin:host.cpu.usage:max
+builtin:host.cpu.usage:fold(max)
+builtin:host.cpu.usage:splitBy()
+builtin:kubernetes.pods
+  :filter(eq("k8s.cluster.name","preproduction"))
+  :splitBy("dt.entity.cloud_application")
+  :max

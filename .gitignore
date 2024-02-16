@@ -52,4 +52,29 @@ src
 !package/appserver/static/js/build
 *.log
 output/
+<<<<<<< HEAD
 secrets.env
+=======
+package/secrets.env
+package/local/
+local/indexes.conf
+local/inputs.conf
+local/passwords.conf
+local/splunk_ta_dynatrace_account.conf
+secrets.env
+releases/Splunk_TA_Dynatrace-2.0.0.tar.gz
+Splunk_TA_Dynatrace*
+appInspect_results.html
+temporary_credentials/indexes.conf
+temporary_credentials/inputs.conf
+temporary_credentials/passwords.conf
+.dccache
+.idea/misc.xml
+/.idea/
+/releases/
+*.pkl
+.idea/splunk-add-on-for-dynatrace.iml
+tests/test_util.py
+tests/local/inputs.conf
+tests/local/passwords.conf
+>>>>>>> main

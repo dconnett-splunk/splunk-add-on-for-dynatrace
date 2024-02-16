@@ -1,3 +1,9 @@
-.DS_Store
+.DS_STORE
 eventgen.conf
 samples
+/metadata/local.meta
+/local/*
+/default/indexes.conf
+*.py[co]
+Thumbs.db
+/secrets.env/

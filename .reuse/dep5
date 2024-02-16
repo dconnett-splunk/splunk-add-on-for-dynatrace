@@ -1,13 +1,11 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: Splunk Add On For Juniper
+Upstream-Name: Splunk Add On For Dynatrace
 Upstream-Contact: Splunk Inc. <support@splunk.com>
-Source: https://github.com/splunk/splunk-add-on-for-juniper
-
+Source: https://github.com/splunk/splunk-add-on-for-dynatrace
 
 Files: deps/*
 Copyright: $YEAR $NAME <$CONTACT>
 License: LicenseRef-Splunk-1-2020
-
 
 Files: package/lookups/*
 Copyright: $YEAR $NAME <$CONTACT>
@@ -51,4 +49,28 @@ License: LicenseRef-Splunk-1-2020
 
 Files: README*
 Copyright: $YEAR $NAME <$CONTACT>
+License: LicenseRef-Splunk-1-2020
+
+Files: globalConfig.json
+Copyright: 2023 David Connett
+License: LicenseRef-Splunk-1-2020
+
+Files: package/lib/requirements.txt
+Copyright: 2023 David Connett
+License: LicenseRef-Splunk-1-2020
+
+Files: package/appserver/templates/base.html
+Copyright: 2023 David Connett
+License: LicenseRef-Splunk-1-2020
+
+Files: package/bin/*
+Copyright: 2023 David Connett
+License: LicenseRef-Splunk-1-2020
+
+Files: package/default/*
+Copyright: 2023 David Connett
+License: LicenseRef-Splunk-1-2020
+
+Files: metric_selectors.txt
+Copyright: 2023 David Connett
 License: LicenseRef-Splunk-1-2020

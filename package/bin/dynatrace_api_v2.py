@@ -1,13 +1,8 @@
-
 import os
 import sys
 import time
 import datetime
 import json
-
-
-
-
 
 bin_dir = os.path.basename(__file__)
 
@@ -28,12 +23,16 @@ from splunklib import modularinput as smi
 from solnlib import conf_manager
 from solnlib import log
 from solnlib.modular_input import checkpointer
-from splunktaucclib.modinput_wrapper import base_modinput  as base_mi 
+from splunktaucclib.modinput_wrapper import base_modinput as base_mi
 import requests
+import util
+from util import Endpoint
+from pathlib import Path
+from dynatrace_types_37 import *
+
+
 
 # encoding = utf-8
-
-
 
 
 class ModInputdynatrace_api_v2(base_mi.BaseModInput):
@@ -47,7 +46,8 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         """overloaded splunklib modularinput method"""
         scheme = super(ModInputdynatrace_api_v2, self).get_scheme()
         scheme.title = ("Dynatrace API v2")
-        scheme.description = ("Go to the add-on\'s configuration UI and configure modular inputs under the Inputs menu.")
+        scheme.description = (
+            "Go to the add-on\'s configuration UI and configure modular inputs under the Inputs menu.")
         scheme.use_external_validation = True
         scheme.streaming_mode_xml = True
 
@@ -63,18 +63,22 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
                                          description="",
                                          required_on_create=True,
                                          required_on_edit=False))
+
         scheme.add_argument(smi.Argument("dynatrace_collection_interval", title="Dynatrace Collection Interval",
                                          description="Relative timeframe passed to Dynatrace API. Timeframe of data to be collected at each polling interval.",
                                          required_on_create=True,
                                          required_on_edit=False))
+
+        scheme.add_argument(smi.Argument("dynatrace_apiv2_endpoint", title="Dynatrace API Endpoint",
+                                         description="Dynatrace API endpoint to be used for data collection.",
+                                         required_on_create=True,
+                                         required_on_edit=False))
+
         # scheme.add_argument(smi.Argument("entity_endpoints", title="Entity Endpoints",
         #                                  description="",
         #                                  required_on_create=True,
         #                                  required_on_edit=False))
-        scheme.add_argument(smi.Argument("ssl_certificate_verification", title="SSL Certificate Verification",
-                                         description="",
-                                         required_on_create=False,
-                                         required_on_edit=False))
+
         return scheme
 
     def get_app_name(self):
@@ -82,80 +86,64 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
 
     def validate_input(helper, definition):
         pass
-    
 
     def collect_events(helper, ew):
-    
-        '''
-        Verify SSL Certificate
-        '''
-        
-        # ssl_certificate = helper.get_arg('ssl_certificate_verification')
-        
-        # if ssl_certificate == True:
-        #     verify_ssl = True
-        # else:
-        #     verify_ssl = False
-    
-        '''
-        Force HTTPS
-        '''
-        
-        # dynatrace_account_input = helper.get_arg("dynatrace_account")
-        # dynatrace_tenant_input = dynatrace_account_input["username"]
-        
-        # if dynatrace_tenant_input.find('https://') == 0:
-        #     opt_dynatrace_tenant = dynatrace_tenant_input
-        # elif dynatrace_tenant_input.find('http://') == 0:
-        #     opt_dynatrace_tenant = dynatrace_tenant_input.replace('http://', 'https://')
-        # else: 
-        #     opt_dynatrace_tenant = 'https://' + dynatrace_tenant_input
-        
-        '''
-        '''
-        
-        # opt_dynatrace_api_token = dynatrace_account_input["password"]
-        # opt_dynatrace_collection_interval = helper.get_arg('dynatrace_collection_interval')
-        # #opt_dynatrace_entity_endpoints = helper.get_arg('entity_endpoints')
-        
-        # time_offset  = int(opt_dynatrace_collection_interval) * 1000
-        # current_time = int(round(time.time() * 1000))
-        # offset_time  = current_time - time_offset
-    
-    
-        # headers     = {'Authorization': 'Api-Token {}'.format(opt_dynatrace_api_token),
-        #                 'version':'Splunk TA 1.0.3'}
-        # api_url     = opt_dynatrace_tenant + '/api/v1/entity/'
-        # parameters  = { 'startTimestamp':str(offset_time), 
-        #                  'endTimestamp': str(current_time)
-        #                }
-    
-        # for endpoint in opt_dynatrace_entity_endpoints:
-        #     response = helper.send_http_request(api_url + endpoint , "GET", headers=headers,  parameters=parameters, payload=None, cookies=None, verify=verify_ssl, cert=None, timeout=None, use_proxy=True)
-        #     try:
-        #         response.raise_for_status()
-        #     except:
-        #         helper.log_error (response.text)
-        #         return
-        
-        #     data = response.json()
-        #     z = json.dumps(data)
-        #     x = json.loads(z)
-    
-        #     for entity in x:
-        #         eventLastSeenTime = entity["lastSeenTimestamp"]/1000
-        #         entity.update({"timestamp":eventLastSeenTime})
-        #         entity['endpoint'] = endpoint
-        #         serialized = json.dumps(entity, sort_keys=True)
-        #         event = helper.new_event(data=serialized, time=eventLastSeenTime, host=None, index=None, source=None, sourcetype=None, done=True, unbroken=True)
-        #         ew.write_event(event)
-    
-        # #   Save the name of the Dynatrace Server that this data came from
-        # event = helper.new_event(data='{"dynatrace_server":"' + opt_dynatrace_tenant + '"}', host=None, index=None, source=None, sourcetype=None, done=True, unbroken=True)
-        # ew.write_event(event)
-        pass
-        
-      
+        dynatrace_account_input = helper.get_arg("dynatrace_account")
+        dynatrace_tenant_input = dynatrace_account_input["username"]
+        opt_dynatrace_tenant: Tenant = util.parse_url(dynatrace_tenant_input)
+        opt_dynatrace_api_token: APIToken = dynatrace_account_input["password"]
+
+        endpoint_string = helper.get_arg("dynatrace_apiv2_endpoint")
+        if ',' in endpoint_string:
+            endpoint = tuple(Endpoint.get_endpoint(val.strip()) for val in endpoint_string.split(","))
+            helper.log_info(f'endpoint: {endpoint}')
+        else:
+            endpoint: Endpoint = Endpoint.get_endpoint(endpoint_string)
+
+        opt_dynatrace_collection_interval_minutes: CollectionInterval = CollectionInterval(int(helper.get_arg("dynatrace_collection_interval")))
+        # opt_ssl_certificate_verification = helper.get_arg('ssl_certificate_verification')
+        opt_ssl_certificate_verification = util.get_ssl_certificate_verification(helper)
+        index = helper.get_arg("index")
+
+        time_start = util.get_from_time(opt_dynatrace_collection_interval_minutes)
+
+        # Set a default list of entity types for the 'entities' endpoint
+        # TODO - Need to make this configurable
+        default_entity_types = ["HOST", "PROCESS_GROUP_INSTANCE", "PROCESS_GROUP", "APPLICATION", "SERVICE", "SYNTHETIC_TEST", "SYNTHETIC_TEST_STEP"]
+
+        # TODO - Change synthetic_tests_on_demand to synthetic_executions_on_demand
+        # Will also need to change strings in the apiv2.py file and the util.py selectors and enpoints
+        sourcetype_mapping = {
+            Endpoint.ENTITIES: "dynatrace:entity",
+            Endpoint.EVENTS: "dynatrace:event",
+            Endpoint.PROBLEMS: "dynatrace:problem",
+            (Endpoint.PROBLEMS, Endpoint.PROBLEM): "dynatrace:problem_details",
+            Endpoint.SYNTHETIC_LOCATIONS: "dynatrace:synthetic_location",
+            Endpoint.SYNTHETIC_MONITORS_HTTP: "dynatrace:synthetic_monitor",
+            Endpoint.SYNTHETIC_TESTS_ON_DEMAND: "dynatrace:on_demand_execution",
+            (Endpoint.SYNTHETIC_MONITORS_HTTP, Endpoint.SYNTHETIC_MONITOR_HTTP): "dynatrace:synthetic_monitor_details",
+            (Endpoint.SYNTHETIC_MONITORS_HTTP, Endpoint.SYNTHETIC_MONITOR_ENTITY_V2): "dynatrace:synthetic_monitor_entity_details"
+        }
+
+        keys_to_remove = ['responseBody', 'peerCertificateDetails']
+        sourcetype = sourcetype_mapping.get(endpoint, None)
+        helper.log_debug('sourcetype: {}'.format(sourcetype))
+
+        params = {'time': time_start}
+        dynatrace_data = util.execute_session(endpoint, opt_dynatrace_tenant, opt_dynatrace_api_token, params, opt_helper=helper)
+
+        helper.log_debug('dynatrace_tenant: {}'.format(opt_dynatrace_tenant))
+        helper.log_debug('dynatrace_collection_interval: {}'.format(opt_dynatrace_collection_interval_minutes))
+
+        if dynatrace_data:
+            for record in dynatrace_data:
+                helper.log_debug('record: {}'.format(record))
+                serialized = json.dumps(record, sort_keys=True)
+                event = helper.new_event(data=serialized, host=None, index=index, source=None,
+                                         sourcetype=sourcetype, done=True, unbroken=True)
+                ew.write_event(event)
+        else:
+            helper.log_warning(f'No data returned from Dynatrace API for endpoint: {endpoint}')
 
     def get_account_fields(self):
         account_fields = []
@@ -180,6 +168,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
                 self.log_error('Get exception when loading global checkbox parameter names. ' + str(e))
                 self.global_checkbox_fields = []
         return self.global_checkbox_fields
+
 
 if __name__ == "__main__":
     exitcode = ModInputdynatrace_api_v2().run(sys.argv)
