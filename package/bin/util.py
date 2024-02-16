@@ -509,36 +509,31 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
         for result in get_dynatrace_data(session, prepared_params_list, opt_helper):
             # Check if result is a list and if so, yield each item individually
             # Only do this if there are no detail endpoints
-            counter['session_loop_count'] += 1
             if not detail_endpoints and isinstance(result, list):
                 for item in result:
-                    counter['item_count'] += 1
-                    counter['item_size'] += len(json.dumps(item))
                     yield item
             elif not detail_endpoints:
-                counter['result_count'] += 1
-                counter['result_size'] += len(json.dumps(result))
                 yield result
 
             # Process the detailed endpoints, if any
             for endpoint in detail_endpoints:
                 if result:
                     for record in result:
-                        counter['detail_count'] += 1
-                        counter['detail_size'] += len(json.dumps(record))
                         id = record[endpoint.selector]
                         params = Params({'time': get_from_time(),
                                          endpoint.url_path_param: id})
                         prepared_params_list = prepare_dynatrace_params(tenant, endpoint, params, extra_params)
                         for details in get_dynatrace_data(session, prepared_params_list):
+                        counter['detail_count'] += 1
+                        counter['detail_size'] += len(json.dumps(record))
                             yield details
-        if opt_helper:
-            opt_helper.log_debug(f'correlation_id: {opt_helper.correlation_id}, session_counters: {counter}')
 
 
 def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
     for url, params, endpoint in prepared_params_list:
         prepared_request = prepare_dynatrace_request(session, url, params)
+        if opt_helper:
+            opt_helper.log_debug(f'correlation_id: {opt_helper.correlation_id}, session_counters: {counter}')
         # Get the proxy URI
         proxy_uri = opt_helper._get_proxy_uri() if opt_helper else None
 
@@ -586,23 +581,20 @@ def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: di
             if opt_helper:
                 opt_helper.log_debug(f'Parsed response: {response_json}')
 
-                # If totalCount is in the response, log it
-                if 'totalCount' in response_json:
-                    opt_helper.log_info(f'correlation_id: {opt_helper.correlation.id}, '
-                                        f'dynatrace_json_response_size: {response_json["totalCount"]}')
-
             yield response_json
 
             if 'nextPageKey' not in response_json or response_json['nextPageKey'] is None:
                 break
 
             # Re-prepare the URL using the updated params
-            prepared_request.prepare_url(base_url, {'nextPageKey': response_json['nextPageKey']})
+            # Remove all params except for nextPageKey
+            next_url = prepared_request.url.split('?')[0]
+            prepared_request.prepare_url(next_url, {'nextPageKey': response_json['nextPageKey']})
 
         except requests.exceptions.HTTPError as err:
             if opt_helper:
                 # Log the status code and error message
-                opt_helper.log_error(f'correlation_id: {opt_helper.correlation_id}, HTTP Error: {err}')
+                opt_helper.log_error(f'HTTP Error: {err}')
 
                 # If the server sent a response, log the response body
                 if err.response is not None:
@@ -611,7 +603,7 @@ def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: di
 
         except Exception as e:
             if opt_helper:
-                opt_helper.log_error(f'Unexpected error: {e}, correlation_id {opt_helper.correlation_id}' )
+                opt_helper.log_error(f'Unexpected error: {e}')
             break
 
 
