@@ -626,6 +626,7 @@ def parse_dynatrace_response(response: json, endpoint: Endpoint):
         return parsed_response
 
     return response
+<<<<<<< HEAD
 
 
 def write_certificate_to_file(cert_file, certificate, helper=None):
@@ -660,3 +661,45 @@ def get_ssl_certificate_verification(helper=None):
 
 
 
+=======
+
+
+def get_ssl_certificate_verification(helper=None):
+    local_dir = os.path.abspath(os.path.join(Path(__file__).resolve().parent.parent, "local"))
+    if helper:
+        helper.log_debug('local_dir: {}'.format(local_dir))
+    cert_file = os.path.join(local_dir, "cert.pem")
+    if helper:
+        helper.log_debug('cert_file: {}'.format(cert_file))
+
+    user_uploaded_certificate = helper.get_global_setting('user_certificate') if helper else None
+
+    # Check if local user_certificate file exists, is the same as the one in the UI, if not update the file on disk
+    if os.path.isfile(cert_file) and user_uploaded_certificate and not filecmp.cmp(cert_file, user_uploaded_certificate):
+        if helper:
+            helper.log_debug('Updating cert.pem')
+        shutil.copy(user_uploaded_certificate, cert_file)
+
+    if helper:
+        helper.log_debug('user_uploaded_certificate: {}'.format(user_uploaded_certificate))
+
+    # if 'SPLUNK_HOME' in os.environ:
+    #     splunk_cert_dir = os.path.join(os.environ['SPLUNK_HOME'], 'etc', 'auth')
+    #     os.environ['REQUESTS_CA_BUNDLE'] = splunk_cert_dir
+    # else:
+    #     if helper:
+    #         helper.log_warning('$SPLUNK_HOME environment variable is not set.')
+
+    # Check if cert_file exists first, otherwise use certifi.where() as default
+    if os.path.isfile(cert_file):
+        opt_ssl_certificate_verification = cert_file
+    elif user_uploaded_certificate and os.path.isfile(user_uploaded_certificate):
+        opt_ssl_certificate_verification = user_uploaded_certificate
+    else:
+        opt_ssl_certificate_verification = certifi.where()
+
+    return opt_ssl_certificate_verification
+
+
+
+>>>>>>> develop

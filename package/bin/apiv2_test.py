@@ -170,6 +170,7 @@ for metric_id in metric_ids:
                                                                dynatrace_tenant)
 
     metric_descriptors_request_info = get_dynatrace_data(session, metric_descriptors_request_info)
+<<<<<<< HEAD
 
     metric_descriptors_request_info = prepare_dynatrace_request('metrics_descriptors',
                                                          dynatrace_tenant,
@@ -177,6 +178,8 @@ for metric_id in metric_ids:
                                                          params={'metricSelector': metric_id})
 
     metric_descriptors_request_info = get_dynatrace_data(metric_descriptors_request_info, dynatrace_tenant, dynatrace_api_token)
+=======
+>>>>>>> develop
 
     print("Metrics request info: " + str(metrics_request_info))
 
