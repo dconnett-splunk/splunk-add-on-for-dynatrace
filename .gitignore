@@ -52,9 +52,7 @@ src
 !package/appserver/static/js/build
 *.log
 output/
-<<<<<<< HEAD
 secrets.env
-=======
 package/secrets.env
 package/local/
 local/indexes.conf
@@ -77,4 +75,3 @@ temporary_credentials/passwords.conf
 tests/test_util.py
 tests/local/inputs.conf
 tests/local/passwords.conf
->>>>>>> main

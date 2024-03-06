@@ -5,7 +5,7 @@
         "version": "2.1.5",
         "restRoot": "Splunk_TA_Dynatrace",
         "schemaVersion": "2.0.0",
-        "_uccVersion": "5.38.0"
+        "_uccVersion": "5.39.0"
     },
     "pages": {
         "configuration": {
