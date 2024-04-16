@@ -75,3 +75,4 @@ temporary_credentials/passwords.conf
 tests/test_util.py
 tests/local/inputs.conf
 tests/local/passwords.conf
+.vagrant
