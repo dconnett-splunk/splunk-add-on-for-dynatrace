@@ -665,7 +665,11 @@ def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
             proxies = {"http": proxy_uri, "https": proxy_uri}
 
         settings = session.merge_environment_settings(
-            prepared_request.url, proxies, None, False, None
+            prepared_request.url,
+            proxies,
+            None,
+            get_ssl_certificate_verification(opt_helper),
+            None,
         )
         # print('prepared_request: {}'.format(prepared_request))
         # print('prepared_request.url: {}'.format(prepared_request.url))
