@@ -488,91 +488,117 @@ def remove_sensitive_info_recursive(data, keys_to_remove):
     return data
 
 
+def fetch_entity_properties(session, tenant, result, extra_params):
+    entity_properties = []
+    if result and result[0].get('type'):
+        prepared_params_list = prepare_dynatrace_params(
+            tenant,
+            Endpoint.ENTITY_TYPES,
+            {'entityType': result[0].get('type')},
+            extra_params)
+        for details in get_dynatrace_data(session, prepared_params_list):
+            entity_properties.append(details['properties'])
+    return entity_properties
+
+
+def prepare_entity_property_params(entity_properties):
+    flattened_properties = entity_properties[0]
+    url_entity_property_params = [f'+properties.{prop["id"]}' for prop in flattened_properties]
+    return 'fields=' + ','.join(url_entity_property_params)
+
+
 def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenant, api_token, params, extra_params=None,
                     opt_helper=None):
     params = Params(params)
 
     with requests.Session() as session:
-        prepared_headers = prepare_dynatrace_headers(api_token)
-        session.headers.update(prepared_headers)
+        session.headers.update(prepare_dynatrace_headers(api_token))
 
-        # Check if a single endpoint or a list of endpoints was provided
-        if isinstance(endpoints, tuple):
-            main_endpoint = endpoints[0]
-            detail_endpoints = endpoints[1:]
-        else:
-            main_endpoint = endpoints
-            detail_endpoints = []
-
-        # Process the main endpoint
-        if main_endpoint.extra_params and extra_params is None:
-            extra_params = main_endpoint.extra_params
-
+        main_endpoint, detail_endpoints = parse_endpoints(endpoints)
+        extra_params = main_endpoint.extra_params if main_endpoint.extra_params and extra_params is None else extra_params
         prepared_params_list = prepare_dynatrace_params(tenant, main_endpoint, params, extra_params)
 
-        counter = {'session_loop_count': 0, 'item_count': 0, 'result_count': 0, 'detail_count': 0,
-                   'item_size': 0, 'result_size': 0, 'detail_size': 0}
+        counter = initialize_counter()
         for result in get_dynatrace_data(session, prepared_params_list, opt_helper):
-            # Check if result is a list and if so, yield each item individually
-            # Only do this if there are no detail endpoints
             counter['session_loop_count'] += 1
-            if not detail_endpoints and isinstance(result, list):
-                for item in result:
-                    counter['item_count'] += 1
-                    counter['item_size'] += len(json.dumps(item))
-                    yield item
-            elif not detail_endpoints:
-                counter['result_count'] += 1
-                counter['result_size'] += len(json.dumps(result))
-                yield result
+            if not detail_endpoints:
+                yield from process_main_results(result, counter)
+            else:
+                yield from process_detail_endpoints(result, detail_endpoints, tenant, extra_params, counter, session)
+        log_counters(opt_helper, counter)
 
-            # Process the detailed endpoints, if any
-            for endpoint in detail_endpoints:
-                entity_properties = []
-                url_entity_property_params = None
-                url_entity_property_params_string = None
 
-                if result:
-                    print('result: {}'.format(result))
-                    print('params: {}'.format(params))
-                    # Check if endpoint is entity details, and fetch supported properties
-                    if endpoint == Endpoint.ENTITY and result[0].get('type'):
-                        print('endpoint: {}'.format(endpoint))
-                        # Need to set fields to get the supported properties, properties come from entity_types
-                        prepared_params_list = prepare_dynatrace_params(tenant,
-                                                                        Endpoint.ENTITY_TYPES,
-                                                                        {'entityType': result[0].get('type')},
-                                                                        extra_params)
-                        for details in get_dynatrace_data(session, prepared_params_list):
-                            entity_properties.append(details['properties'])
+def parse_endpoints(endpoints):
+    if isinstance(endpoints, tuple):
+        return endpoints[0], endpoints[1:]
+    return endpoints, []
 
-                        # Create new params with the supported properties, prepend + to each id, and format as properties.{id}
-                        flattened_properties = entity_properties[0]
-                        url_entity_property_params = [f'+properties.{prop["id"]}' for prop in flattened_properties]
 
-                        # Join the URL params into a single string
-                        url_entity_property_params_string = 'fields=' + ','.join(url_entity_property_params)
+def initialize_counter():
+    return {'session_loop_count': 0, 'item_count': 0, 'result_count': 0, 'detail_count': 0, 'item_size': 0,
+            'result_size': 0, 'detail_size': 0}
 
-                    for record in result:
-                        counter['detail_count'] += 1
-                        counter['detail_size'] += len(json.dumps(record))
-                        id = record[endpoint.selector]
-                        params = Params({'time': get_from_time(),
-                                         endpoint.url_path_param: id})
-                        if url_entity_property_params_string:
-                            params['url_params'] = url_entity_property_params_string
-                        prepared_params_list = prepare_dynatrace_params(tenant, endpoint, params, extra_params)
-                        for details in get_dynatrace_data(session, prepared_params_list):
-                            yield details
-        if opt_helper:
-            opt_helper.log_info(f'correlation_id: {opt_helper.correlation_id}, session_counters: {counter}')
+
+def process_main_results(result, counter):
+    if isinstance(result, list):
+        for item in result:
+            counter['item_count'] += 1
+            counter['item_size'] += len(json.dumps(item))
+            yield item
+    else:
+        counter['result_count'] += 1
+        counter['result_size'] += len(json.dumps(result))
+        yield result
+
+
+def process_detail_endpoints(result, detail_endpoints, tenant, extra_params, counter, session):
+    if result:
+        entity_properties, url_entity_property_params_string = get_entity_properties_if_needed(detail_endpoints, result,
+                                                                                               tenant, extra_params,
+                                                                                               session)
+        for record in result:
+            counter['detail_count'] += 1
+            counter['detail_size'] += len(json.dumps(record))
+            id = record[detail_endpoints[0].selector]
+            params = Params({'time': get_from_time(), detail_endpoints[0].url_path_param: id})
+            if url_entity_property_params_string:
+                params['url_params'] = url_entity_property_params_string
+            prepared_params_list = prepare_dynatrace_params(tenant, detail_endpoints[0], params, extra_params)
+            for details in get_dynatrace_data(session, prepared_params_list):
+                yield details
+
+
+def get_entity_properties_if_needed(detail_endpoints, result, tenant, extra_params, session):
+    entity_properties = []
+    url_entity_property_params_string = None
+    if detail_endpoints[0] == Endpoint.ENTITY and result[0].get('type'):
+        prepared_params_list = prepare_dynatrace_params(tenant, Endpoint.ENTITY_TYPES,
+                                                        {'entityType': result[0].get('type')}, extra_params)
+        for details in get_dynatrace_data(session, prepared_params_list):
+            entity_properties.append(details['properties'])
+        flattened_properties = entity_properties[0]
+        url_entity_property_params = [f'+properties.{prop["id"]}' for prop in flattened_properties]
+        url_entity_property_params_string = 'fields=' + ','.join(url_entity_property_params)
+    return entity_properties, url_entity_property_params_string
+
+
+def log_counters(opt_helper, counter):
+    if opt_helper:
+        opt_helper.log_info(f'correlation_id: {opt_helper.correlation_id}, session_counters: {counter}')
 
 
 def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
     for url, params, endpoint in prepared_params_list:
+
         prepared_request = prepare_dynatrace_request(session, url, params)
         # Get the proxy URI
         proxy_uri = opt_helper._get_proxy_uri() if opt_helper else None
+
+        # Set proxy to localhost 8080 for now
+        proxy_uri = 'https://localhost:8080'
+
+        # Set cert to mitm proxy cert
+        cert_file = '~/.mitmproxy/mitmproxy-ca-cert.pem'
 
         # Convert the proxy URI into a dictionary format expected by merge_environment_settings
         proxies = {}
@@ -580,7 +606,7 @@ def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
             # Assuming the proxy is HTTP; adjust if necessary for HTTPS or other types
             proxies = {"http": proxy_uri, "https": proxy_uri}
 
-        settings = session.merge_environment_settings(prepared_request.url, proxies, None, get_ssl_certificate_verification(opt_helper), None)
+        settings = session.merge_environment_settings(prepared_request.url, proxies, None, False, None)
         # print('prepared_request: {}'.format(prepared_request))
         # print('prepared_request.url: {}'.format(prepared_request.url))
         # print('params: {}'.format(params))
@@ -644,7 +670,7 @@ def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: di
 
         except Exception as e:
             if opt_helper:
-                opt_helper.log_error(f'Unexpected error: {e}, correlation_id {opt_helper.correlation_id}' )
+                opt_helper.log_error(f'Unexpected error: {e}, correlation_id {opt_helper.correlation_id}')
             break
 
 
@@ -670,7 +696,6 @@ def parse_dynatrace_response(response: json, endpoint: Endpoint):
         return MetricData(**response)
     elif endpoint == Endpoint.METRICS and isinstance(response, dict):
         return MetricDescriptorCollection(**response)
-
 
     # This next line grabs a specific key from the response, if it doesn't exist, it returns the response
     parsed_response = response.get(selector, response)
