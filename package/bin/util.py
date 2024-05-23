@@ -92,6 +92,12 @@ class Endpoint(Enum):
             ResponseSelector("entityId"),
             Params({'from': '{time}'}),
             PathParam('entityId'))
+    ENTITY_TYPES = \
+        EndpointInfo(
+            URL('/api/v2/entityTypes/{entityType}'),
+            None,
+            None,
+            PathParam('entityType'))
     PROBLEM = \
         EndpointInfo(
             URL('/api/v2/problems/{problemId}'),
@@ -522,13 +528,39 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
 
             # Process the detailed endpoints, if any
             for endpoint in detail_endpoints:
+                entity_properties = []
+                url_entity_property_params = None
+                url_entity_property_params_string = None
+
                 if result:
+                    print('result: {}'.format(result))
+                    print('params: {}'.format(params))
+                    # Check if endpoint is entity details, and fetch supported properties
+                    if endpoint == Endpoint.ENTITY and result[0].get('type'):
+                        print('endpoint: {}'.format(endpoint))
+                        # Need to set fields to get the supported properties, properties come from entity_types
+                        prepared_params_list = prepare_dynatrace_params(tenant,
+                                                                        Endpoint.ENTITY_TYPES,
+                                                                        {'entityType': result[0].get('type')},
+                                                                        extra_params)
+                        for details in get_dynatrace_data(session, prepared_params_list):
+                            entity_properties.append(details['properties'])
+
+                        # Create new params with the supported properties, prepend + to each id, and format as properties.{id}
+                        flattened_properties = entity_properties[0]
+                        url_entity_property_params = [f'+properties.{prop["id"]}' for prop in flattened_properties]
+
+                        # Join the URL params into a single string
+                        url_entity_property_params_string = 'fields=' + ','.join(url_entity_property_params)
+
                     for record in result:
                         counter['detail_count'] += 1
                         counter['detail_size'] += len(json.dumps(record))
                         id = record[endpoint.selector]
                         params = Params({'time': get_from_time(),
                                          endpoint.url_path_param: id})
+                        if url_entity_property_params_string:
+                            params['url_params'] = url_entity_property_params_string
                         prepared_params_list = prepare_dynatrace_params(tenant, endpoint, params, extra_params)
                         for details in get_dynatrace_data(session, prepared_params_list):
                             yield details
