@@ -33,7 +33,7 @@ from string import Formatter
         get_dynatrace_entity_end"""
 
 __author__ = "David Connett"
-__version__ = "2.1.1"
+__version__ = "2.1.6"
 __maintainer__ = "David Connett"
 __email__ = "dconnett@splunk.com"
 __status__ = "Development"
@@ -517,7 +517,7 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
         main_endpoint, detail_endpoints = parse_endpoints(endpoints)
 
         if main_endpoint is None:
-            raise ValueError("Main endpoint cannot be None")
+            raise ValueError(f"Main endpoint cannot be None. Endpoints provided: {endpoints}")
 
         if main_endpoint.extra_params and extra_params is None:
             extra_params = main_endpoint.extra_params
