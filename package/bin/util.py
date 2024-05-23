@@ -16,12 +16,13 @@ from requests import Response, Request, PreparedRequest, Session
 import re
 import string
 from dynatrace_types_37 import *
+
 # from dynatrace_types import *
 import json
 import certifi
 from string import Formatter
 
-#urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 """util.py: This module contains utility functions for the package. These functions are used by the package's scripts.
 
@@ -42,9 +43,11 @@ __license__ = "Splunk General Terms"
 script_dir = os.path.dirname(os.path.abspath(__file__))
 package_dir = os.path.dirname(script_dir)
 
-dynatrace_managed_uri_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2'
-dynatrace_saas_uri_v2 = 'https://{your-enviroment-id}.live.dynatrace.com/api/v2'
-dynatrace_environment_active_gate_v2 = 'https://{your-domain}/e/{your-environment-id}/api/v2'
+dynatrace_managed_uri_v2 = "https://{your-domain}/e/{your-environment-id}/api/v2"
+dynatrace_saas_uri_v2 = "https://{your-enviroment-id}.live.dynatrace.com/api/v2"
+dynatrace_environment_active_gate_v2 = (
+    "https://{your-domain}/e/{your-environment-id}/api/v2"
+)
 
 
 @dataclass
@@ -57,116 +60,108 @@ class EndpointInfo:
 
 
 class Endpoint(Enum):
-    METRICS = \
-        EndpointInfo(
-            URL('/api/v2/metrics'),
-            ResponseSelector('metrics'),
-            Params({'writtenSince': '{time}',
-                    'fields': 'unit,aggregationTypes'}),
-            None)
-    METRICS_QUERY = \
-        EndpointInfo(
-            URL('/api/v2/metrics/query'),
-            ResponseSelector('result'),
-            Params({'from': '{time}',
-                    'metricSelector': '{metricSelector}'}),
-            None)
-    METRIC_DESCRIPTORS = \
-        EndpointInfo(
-            URL('/api/v2/metrics/{metricKey}'),
-            ResponseSelector('metricId'),
-            None,
-            PathParam('metricKey'))
-    ENTITIES = \
-        EndpointInfo(
-            URL('/api/v2/entities'),
-            ResponseSelector('entities'),
-            Params({'entitySelector': 'type(\"{entitySelector}\")',
-                    'from': '{time}'}),
-            None,
-            ["HOST", "PROCESS_GROUP_INSTANCE", "PROCESS_GROUP", "APPLICATION", "SERVICE", "SYNTHETIC_TEST",
-             "SYNTHETIC_TEST_STEP"])
-    ENTITY = \
-        EndpointInfo(
-            URL('/api/v2/entities/{entityId}'),
-            ResponseSelector("entityId"),
-            Params({'from': '{time}'}),
-            PathParam('entityId'))
-    ENTITY_TYPES = \
-        EndpointInfo(
-            URL('/api/v2/entityTypes/{entityType}'),
-            None,
-            None,
-            PathParam('entityType'))
-    PROBLEM = \
-        EndpointInfo(
-            URL('/api/v2/problems/{problemId}'),
-            ResponseSelector('problemId'),
-            None,
-            PathParam('problemId'))
-    PROBLEMS = \
-        EndpointInfo(
-            URL('/api/v2/problems'),
-            ResponseSelector('problems'),
-            Params({'from': '{time}'}),
-            None)
-    EVENTS = \
-        EndpointInfo(
-            URL('/api/v2/events'),
-            ResponseSelector('events'),
-            Params({'from': '{time}'}),
-            None)
-    SYNTHETIC_LOCATIONS = \
-        EndpointInfo(
-            URL('/api/v2/synthetic/locations'),
-            ResponseSelector('locations'),
-            None,
-            None)
-    SYNTHETIC_TESTS_ON_DEMAND = \
-        EndpointInfo(
-            URL('/api/v2/synthetic/executions'),
-            ResponseSelector('executions'),
-            Params({'schedulingFrom': '{time}'}),
-            None)
-    SYNTHETIC_TEST_ON_DEMAND = \
-        EndpointInfo(
-            URL('/api/v2/synthetic/executions/{executionId}/fullReport'),
-            ResponseSelector('entityId'),
-            None,
-            PathParam('executionId'))
-    SYNTHETIC_MONITORS_HTTP = \
-        EndpointInfo(
-            URL('/api/v1/synthetic/monitors'),
-            ResponseSelector('monitors'),
-            None,
-            None)
-    SYNTHETIC_MONITOR_HTTP = \
-        EndpointInfo(
-            URL('/api/v1/synthetic/monitors/{entityId}'),
-            ResponseSelector('entityId'),
-            None,
-            PathParam('entityId'))
-    SYNTHETIC_MONITOR_HTTP_V2 = \
-        EndpointInfo(
-            URL('/api/v2/synthetic/execution/{monitorId}'),
-            ResponseSelector('monitorId'),
-            None,
-            PathParam('monitorId'),
-            ["SUCCESS", "FAILED"])
+    METRICS = EndpointInfo(
+        URL("/api/v2/metrics"),
+        ResponseSelector("metrics"),
+        Params({"writtenSince": "{time}", "fields": "unit,aggregationTypes"}),
+        None,
+    )
+    METRICS_QUERY = EndpointInfo(
+        URL("/api/v2/metrics/query"),
+        ResponseSelector("result"),
+        Params({"from": "{time}", "metricSelector": "{metricSelector}"}),
+        None,
+    )
+    METRIC_DESCRIPTORS = EndpointInfo(
+        URL("/api/v2/metrics/{metricKey}"),
+        ResponseSelector("metricId"),
+        None,
+        PathParam("metricKey"),
+    )
+    ENTITIES = EndpointInfo(
+        URL("/api/v2/entities"),
+        ResponseSelector("entities"),
+        Params({"entitySelector": 'type("{entitySelector}")', "from": "{time}"}),
+        None,
+        [
+            "HOST",
+            "PROCESS_GROUP_INSTANCE",
+            "PROCESS_GROUP",
+            "APPLICATION",
+            "SERVICE",
+            "SYNTHETIC_TEST",
+            "SYNTHETIC_TEST_STEP",
+        ],
+    )
+    ENTITY = EndpointInfo(
+        URL("/api/v2/entities/{entityId}"),
+        ResponseSelector("entityId"),
+        Params({"from": "{time}"}),
+        PathParam("entityId"),
+    )
+    ENTITY_TYPES = EndpointInfo(
+        URL("/api/v2/entityTypes/{entityType}"), None, None, PathParam("entityType")
+    )
+    PROBLEM = EndpointInfo(
+        URL("/api/v2/problems/{problemId}"),
+        ResponseSelector("problemId"),
+        None,
+        PathParam("problemId"),
+    )
+    PROBLEMS = EndpointInfo(
+        URL("/api/v2/problems"),
+        ResponseSelector("problems"),
+        Params({"from": "{time}"}),
+        None,
+    )
+    EVENTS = EndpointInfo(
+        URL("/api/v2/events"),
+        ResponseSelector("events"),
+        Params({"from": "{time}"}),
+        None,
+    )
+    SYNTHETIC_LOCATIONS = EndpointInfo(
+        URL("/api/v2/synthetic/locations"), ResponseSelector("locations"), None, None
+    )
+    SYNTHETIC_TESTS_ON_DEMAND = EndpointInfo(
+        URL("/api/v2/synthetic/executions"),
+        ResponseSelector("executions"),
+        Params({"schedulingFrom": "{time}"}),
+        None,
+    )
+    SYNTHETIC_TEST_ON_DEMAND = EndpointInfo(
+        URL("/api/v2/synthetic/executions/{executionId}/fullReport"),
+        ResponseSelector("entityId"),
+        None,
+        PathParam("executionId"),
+    )
+    SYNTHETIC_MONITORS_HTTP = EndpointInfo(
+        URL("/api/v1/synthetic/monitors"), ResponseSelector("monitors"), None, None
+    )
+    SYNTHETIC_MONITOR_HTTP = EndpointInfo(
+        URL("/api/v1/synthetic/monitors/{entityId}"),
+        ResponseSelector("entityId"),
+        None,
+        PathParam("entityId"),
+    )
+    SYNTHETIC_MONITOR_HTTP_V2 = EndpointInfo(
+        URL("/api/v2/synthetic/execution/{monitorId}"),
+        ResponseSelector("monitorId"),
+        None,
+        PathParam("monitorId"),
+        ["SUCCESS", "FAILED"],
+    )
     # This is a hack because SYNTHETIC_MONITORS_HTTP returns entityIds and others return monitorIds
-    SYNTHETIC_MONITOR_ENTITY_V2 = \
-        EndpointInfo(
-            URL('/api/v2/synthetic/execution/{entityId}'),
-            ResponseSelector('entityId'),
-            None,
-            PathParam('entityId'),
-            ["SUCCESS", "FAILED"])
-    SYNTHETIC_TESTS_RESULTS = \
-        EndpointInfo(
-            URL('/api/v2/synthetic/tests/results'),
-            ResponseSelector('results'),
-            None,
-            None)
+    SYNTHETIC_MONITOR_ENTITY_V2 = EndpointInfo(
+        URL("/api/v2/synthetic/execution/{entityId}"),
+        ResponseSelector("entityId"),
+        None,
+        PathParam("entityId"),
+        ["SUCCESS", "FAILED"],
+    )
+    SYNTHETIC_TESTS_RESULTS = EndpointInfo(
+        URL("/api/v2/synthetic/tests/results"), ResponseSelector("results"), None, None
+    )
 
     @property
     def url(self):
@@ -182,7 +177,9 @@ class Endpoint(Enum):
 
     @property
     def url_path_param(self):
-        return self.value.url_path_param if isinstance(self.value, EndpointInfo) else None
+        return (
+            self.value.url_path_param if isinstance(self.value, EndpointInfo) else None
+        )
 
     @property
     def extra_params(self):
@@ -215,7 +212,9 @@ def get_dynatrace_managed_uri(domain, environment_id):
     Returns:
         str: Managed URI.
     """
-    return dynatrace_managed_uri_v2.format(your_domain=domain, your_environment_id=environment_id)
+    return dynatrace_managed_uri_v2.format(
+        your_domain=domain, your_environment_id=environment_id
+    )
 
 
 def get_dynatrace_saas_uri(environment_id):
@@ -240,7 +239,9 @@ def get_dynatrace_environment_active_gate_uri(domain, environment_id):
     Returns:
         str: Environment active gate URI.
     """
-    return dynatrace_environment_active_gate_v2.format(your_domain=domain, your_environment_id=environment_id)
+    return dynatrace_environment_active_gate_v2.format(
+        your_domain=domain, your_environment_id=environment_id
+    )
 
 
 def endpoint_enum_lookup(url: str) -> Optional[EndpointInfo]:
@@ -255,11 +256,11 @@ def endpoint_enum_lookup(url: str) -> Optional[EndpointInfo]:
 
 
 def parse_url(url):
-    if not url.startswith('https://'):
-        if url.startswith('http://'):
-            return url.replace('http://', 'https://')
+    if not url.startswith("https://"):
+        if url.startswith("http://"):
+            return url.replace("http://", "https://")
         else:
-            return 'https://' + url
+            return "https://" + url
     return url
 
 
@@ -277,13 +278,13 @@ def parse_secrets_env():
     # Get the path to the current script
 
     # Construct a path relative to the script directory
-    secrets_file = os.path.join(package_dir, 'secrets.env')
+    secrets_file = os.path.join(package_dir, "secrets.env")
     print("Secrets file:", secrets_file)
     if os.path.exists(secrets_file):
         with open(secrets_file) as f:
             for line in f:
-                if not line.startswith('#'):
-                    (key, val) = line.split('=')
+                if not line.startswith("#"):
+                    (key, val) = line.split("=")
                     secrets[key] = val.strip()
     return secrets
 
@@ -294,7 +295,9 @@ def parse_secrets_env():
 
 def default_time() -> WrittenSinceParam:
     written_since = (datetime.now() - timedelta(minutes=1)).timestamp()
-    last_hour: WrittenSinceParam = WrittenSinceParam({'written_since': f'{written_since}'})
+    last_hour: WrittenSinceParam = WrittenSinceParam(
+        {"written_since": f"{written_since}"}
+    )
     return last_hour
 
 
@@ -332,16 +335,14 @@ def default_time_utc_written_since() -> WrittenSinceParam:
     in unix epoch time in milliseconds with no decimals with the key written_since.
     This is for certain endpoints that require a time parameter in UTC"""
     last_hour: StartTime = calculate_utc_start_timestamp(60)
-    written_since = WrittenSinceParam({'written_since': f'{last_hour}'})
+    written_since = WrittenSinceParam({"written_since": f"{last_hour}"})
     return written_since
 
 
 def create_session(tenant, api_token, verify=True) -> requests.Session:
     session = requests.Session()
     session.verify = verify
-    session.headers = {
-        'Authorization': f'Api-Token {api_token}'
-    }
+    session.headers = {"Authorization": f"Api-Token {api_token}"}
     session.base_url = tenant
     return session
 
@@ -352,7 +353,9 @@ def find_format_key(value: str) -> Optional[str]:
     return format_keys[0] if format_keys else None
 
 
-def get_formatted_key_value_pair(key: str, value: str, params: Params) -> Tuple[str, Any]:
+def get_formatted_key_value_pair(
+    key: str, value: str, params: Params
+) -> Tuple[str, Any]:
     """Return the key-value pair after formatting."""
     replaced_key = find_format_key(value)
     if replaced_key and replaced_key in params:
@@ -361,7 +364,9 @@ def get_formatted_key_value_pair(key: str, value: str, params: Params) -> Tuple[
     return key, value
 
 
-def format_url_and_pop_path_params(endpoint: Endpoint, url: URL, params: Params) -> Tuple[URL, Params]:
+def format_url_and_pop_path_params(
+    endpoint: Endpoint, url: URL, params: Params
+) -> Tuple[URL, Params]:
     """Format the URL and pop the URL Path parameter from the params dictionary."""
     # print('format_url_and_pop_path_params: {}'.format(endpoint)
     #         + ' url: {}'.format(url)
@@ -369,8 +374,12 @@ def format_url_and_pop_path_params(endpoint: Endpoint, url: URL, params: Params)
     if endpoint.url_path_param:
         endpoint_path_key = endpoint.url_path_param
         if endpoint_path_key in params:
-            formatted_url = URL(url.format(**{endpoint_path_key: params[endpoint_path_key]}))
-            new_params = Params({k: v for k, v in params.items() if k != endpoint_path_key})
+            formatted_url = URL(
+                url.format(**{endpoint_path_key: params[endpoint_path_key]})
+            )
+            new_params = Params(
+                {k: v for k, v in params.items() if k != endpoint_path_key}
+            )
             # print('format_url_and_pop_path_params: {}'.format(formatted_url)
             #         + ' new_params: {}'.format(new_params))
             return formatted_url, new_params
@@ -409,10 +418,12 @@ def format_params(endpoint: Endpoint, params: Params) -> Params:
     if endpoint.params:
         for key, value in endpoint.params.items():
             # If the value contains a format string
-            if '{' in value:
+            if "{" in value:
                 format_key = find_format_key(value)
                 if format_key and format_key in formatted_params:
-                    new_key, new_value = get_formatted_key_value_pair(key, value, formatted_params)
+                    new_key, new_value = get_formatted_key_value_pair(
+                        key, value, formatted_params
+                    )
                     formatted_params[new_key] = new_value
                     # If the key has changed, remove the original key
                     if new_key != key:
@@ -433,8 +444,8 @@ def build_url(endpoint: Endpoint, tenant: Tenant, params: Params) -> URL:
 
 def prepare_dynatrace_headers(api_token, extra_headers=None):
     headers = {
-        'Authorization': f'Api-Token {api_token}',
-        'version': f'Splunk_TA_Dynatrace {__version__}',
+        "Authorization": f"Api-Token {api_token}",
+        "version": f"Splunk_TA_Dynatrace {__version__}",
     }
     return {**headers, **extra_headers} if extra_headers else headers
 
@@ -451,15 +462,15 @@ def prepare_dynatrace_params(base_url, endpoint: Endpoint, params, extra_params=
 
     if endpoint == Endpoint.ENTITIES and extra_params:
         for entity_type in extra_params:
-            prepared_params['entitySelector'] = entity_type
+            prepared_params["entitySelector"] = entity_type
             yield url, format_params(endpoint, prepared_params), endpoint
     elif endpoint == Endpoint.METRICS_QUERY and extra_params:
         for metric_selector in extra_params:
-            prepared_params['metricSelector'] = metric_selector
+            prepared_params["metricSelector"] = metric_selector
             yield url, format_params(endpoint, prepared_params), endpoint
     elif endpoint == Endpoint.METRICS and extra_params:
         # {'metricSelector': 'builtin:host.cpu.usage:merge(0):avg, metricselector2, etc...'}
-        prepared_params['metricSelector'] = ','.join(extra_params)
+        prepared_params["metricSelector"] = ",".join(extra_params)
         yield url, format_params(endpoint, prepared_params), endpoint
     elif endpoint == Endpoint.SYNTHETIC_MONITOR_HTTP_V2 and endpoint.extra_params:
         for extra_param in endpoint.extra_params:  # loop through ["SUCCESS", "FAILURE"]
@@ -476,13 +487,16 @@ def prepare_dynatrace_params(base_url, endpoint: Endpoint, params, extra_params=
 def prepare_dynatrace_request(session: Session, url: URL, params: Params):
     session.url = url
     session.params = params
-    return session.prepare_request(Request('GET', url, params=params))
+    return session.prepare_request(Request("GET", url, params=params))
 
 
 def remove_sensitive_info_recursive(data, keys_to_remove):
     if isinstance(data, dict):
-        data = {key: remove_sensitive_info_recursive(value, keys_to_remove) for key, value in data.items()
-                if key not in keys_to_remove}
+        data = {
+            key: remove_sensitive_info_recursive(value, keys_to_remove)
+            for key, value in data.items()
+            if key not in keys_to_remove
+        }
     elif isinstance(data, list):
         data = [remove_sensitive_info_recursive(item, keys_to_remove) for item in data]
     return data
@@ -490,47 +504,58 @@ def remove_sensitive_info_recursive(data, keys_to_remove):
 
 def fetch_entity_properties(session, tenant, result, extra_params):
     entity_properties = []
-    if result and result[0].get('type'):
+    if result and result[0].get("type"):
         prepared_params_list = prepare_dynatrace_params(
             tenant,
             Endpoint.ENTITY_TYPES,
-            {'entityType': result[0].get('type')},
-            extra_params)
+            {"entityType": result[0].get("type")},
+            extra_params,
+        )
         for details in get_dynatrace_data(session, prepared_params_list):
-            entity_properties.append(details['properties'])
+            entity_properties.append(details["properties"])
     return entity_properties
 
 
 def prepare_entity_property_params(entity_properties):
     flattened_properties = entity_properties[0]
-    url_entity_property_params = [f'+properties.{prop["id"]}' for prop in flattened_properties]
-    return 'fields=' + ','.join(url_entity_property_params)
+    url_entity_property_params = [
+        f'+properties.{prop["id"]}' for prop in flattened_properties
+    ]
+    return "fields=" + ",".join(url_entity_property_params)
 
 
-def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenant, api_token, params, extra_params=None,
-                    opt_helper=None):
+def execute_session(
+    endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]],
+    tenant,
+    api_token,
+    params,
+    extra_params=None,
+    opt_helper=None,
+):
     params = Params(params)
 
     with requests.Session() as session:
         session.headers.update(prepare_dynatrace_headers(api_token))
 
         main_endpoint, detail_endpoints = parse_endpoints(endpoints)
-
-        if main_endpoint is None:
-            raise ValueError(f"Main endpoint cannot be None. Endpoints provided: {endpoints}")
-
-        if main_endpoint.extra_params and extra_params is None:
-            extra_params = main_endpoint.extra_params
-
-        prepared_params_list = prepare_dynatrace_params(tenant, main_endpoint, params, extra_params)
+        extra_params = (
+            main_endpoint.extra_params
+            if main_endpoint.extra_params and extra_params is None
+            else extra_params
+        )
+        prepared_params_list = prepare_dynatrace_params(
+            tenant, main_endpoint, params, extra_params
+        )
 
         counter = initialize_counter()
         for result in get_dynatrace_data(session, prepared_params_list, opt_helper):
-            counter['session_loop_count'] += 1
+            counter["session_loop_count"] += 1
             if not detail_endpoints:
                 yield from process_main_results(result, counter)
             else:
-                yield from process_detail_endpoints(result, detail_endpoints, tenant, extra_params, counter, session)
+                yield from process_detail_endpoints(
+                    result, detail_endpoints, tenant, extra_params, counter, session
+                )
         log_counters(opt_helper, counter)
 
 
@@ -542,58 +567,82 @@ def parse_endpoints(endpoints):
 
 def initialize_counter():
     return {
-        'session_loop_count': 0, 'item_count': 0, 'result_count': 0,
-        'detail_count': 0, 'item_size': 0, 'result_size': 0, 'detail_size': 0
+        "session_loop_count": 0,
+        "item_count": 0,
+        "result_count": 0,
+        "detail_count": 0,
+        "item_size": 0,
+        "result_size": 0,
+        "detail_size": 0,
     }
 
 
 def process_main_results(result, counter):
     if isinstance(result, list):
         for item in result:
-            counter['item_count'] += 1
-            counter['item_size'] += len(json.dumps(item))
+            counter["item_count"] += 1
+            counter["item_size"] += len(json.dumps(item))
             yield item
     else:
-        counter['result_count'] += 1
-        counter['result_size'] += len(json.dumps(result))
+        counter["result_count"] += 1
+        counter["result_size"] += len(json.dumps(result))
         yield result
 
 
-def process_detail_endpoints(result, detail_endpoints, tenant, extra_params, counter, session):
+def process_detail_endpoints(
+    result, detail_endpoints, tenant, extra_params, counter, session
+):
     if result:
-        entity_properties, url_entity_property_params_string = get_entity_properties_if_needed(detail_endpoints, result,
-                                                                                               tenant, extra_params,
-                                                                                               session)
+        entity_properties, url_entity_property_params_string = (
+            get_entity_properties_if_needed(
+                detail_endpoints, result, tenant, extra_params, session
+            )
+        )
         for record in result:
-            counter['detail_count'] += 1
-            counter['detail_size'] += len(json.dumps(record))
+            counter["detail_count"] += 1
+            counter["detail_size"] += len(json.dumps(record))
             id = record[detail_endpoints[0].selector]
-            params = Params({'time': get_from_time(), detail_endpoints[0].url_path_param: id})
+            params = Params(
+                {"time": get_from_time(), detail_endpoints[0].url_path_param: id}
+            )
             if url_entity_property_params_string:
-                params['url_params'] = url_entity_property_params_string
-            prepared_params_list = prepare_dynatrace_params(tenant, detail_endpoints[0], params, extra_params)
+                params["url_params"] = url_entity_property_params_string
+            prepared_params_list = prepare_dynatrace_params(
+                tenant, detail_endpoints[0], params, extra_params
+            )
             for details in get_dynatrace_data(session, prepared_params_list):
                 yield details
 
 
-def get_entity_properties_if_needed(detail_endpoints, result, tenant, extra_params, session):
+def get_entity_properties_if_needed(
+    detail_endpoints, result, tenant, extra_params, session
+):
     entity_properties = []
     url_entity_property_params_string = None
-    if detail_endpoints[0] == Endpoint.ENTITY and result[0].get('type'):
+    if detail_endpoints[0] == Endpoint.ENTITY and result[0].get("type"):
         prepared_params_list = prepare_dynatrace_params(
-            tenant, Endpoint.ENTITY_TYPES, {'entityType': result[0].get('type')}, extra_params
+            tenant,
+            Endpoint.ENTITY_TYPES,
+            {"entityType": result[0].get("type")},
+            extra_params,
         )
         for details in get_dynatrace_data(session, prepared_params_list):
-            entity_properties.append(details['properties'])
+            entity_properties.append(details["properties"])
         flattened_properties = entity_properties[0]
-        url_entity_property_params = [f'+properties.{prop["id"]}' for prop in flattened_properties]
-        url_entity_property_params_string = 'fields=' + ','.join(url_entity_property_params)
+        url_entity_property_params = [
+            f'+properties.{prop["id"]}' for prop in flattened_properties
+        ]
+        url_entity_property_params_string = "fields=" + ",".join(
+            url_entity_property_params
+        )
     return entity_properties, url_entity_property_params_string
 
 
 def log_counters(opt_helper, counter):
     if opt_helper:
-        opt_helper.log_info(f'correlation_id: {opt_helper.correlation_id}, session_counters: {counter}')
+        opt_helper.log_info(
+            f"correlation_id: {opt_helper.correlation_id}, session_counters: {counter}"
+        )
 
 
 def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
@@ -604,10 +653,10 @@ def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
         proxy_uri = opt_helper._get_proxy_uri() if opt_helper else None
 
         # Set proxy to localhost 8080 for now
-        proxy_uri = 'https://localhost:8080'
+        # proxy_uri = 'https://localhost:8080'
 
         # Set cert to mitm proxy cert
-        cert_file = '~/.mitmproxy/mitmproxy-ca-cert.pem'
+        # cert_file = '~/.mitmproxy/mitmproxy-ca-cert.pem'
 
         # Convert the proxy URI into a dictionary format expected by merge_environment_settings
         proxies = {}
@@ -615,71 +664,90 @@ def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
             # Assuming the proxy is HTTP; adjust if necessary for HTTPS or other types
             proxies = {"http": proxy_uri, "https": proxy_uri}
 
-        settings = session.merge_environment_settings(prepared_request.url, proxies, None, False, None)
+        settings = session.merge_environment_settings(
+            prepared_request.url, proxies, None, False, None
+        )
         # print('prepared_request: {}'.format(prepared_request))
         # print('prepared_request.url: {}'.format(prepared_request.url))
         # print('params: {}'.format(params))
         # print('settings: {}'.format(settings))
 
         if opt_helper:
-            opt_helper.log_debug(f'Prepared Request: {prepared_request} {prepared_request.url} {prepared_request.body}')
-            opt_helper.log_debug(f'url: {url}')
-            opt_helper.log_debug(f'headers: {prepared_request.headers}')
-            opt_helper.log_debug(f'params: {params}')
-            opt_helper.log_debug(f'Settings: {settings}')
+            opt_helper.log_debug(
+                f"Prepared Request: {prepared_request} {prepared_request.url} {prepared_request.body}"
+            )
+            opt_helper.log_debug(f"url: {url}")
+            opt_helper.log_debug(f"headers: {prepared_request.headers}")
+            opt_helper.log_debug(f"params: {params}")
+            opt_helper.log_debug(f"Settings: {settings}")
 
-        for response_json in _get_dynatrace_data(session, prepared_request, settings, opt_helper):
+        for response_json in _get_dynatrace_data(
+            session, prepared_request, settings, opt_helper
+        ):
             parsed_response = parse_dynatrace_response(response_json, endpoint)
 
             if opt_helper:
-                opt_helper.log_debug(f'Parsed Response: {parsed_response}')
+                opt_helper.log_debug(f"Parsed Response: {parsed_response}")
 
             if parsed_response:
                 yield parsed_response
 
 
-def _get_dynatrace_data(session, prepared_request: PreparedRequest, settings: dict, opt_helper) -> json:
-    base_url = prepared_request.url.replace(prepared_request.path_url, '')
+def _get_dynatrace_data(
+    session, prepared_request: PreparedRequest, settings: dict, opt_helper
+) -> json:
+    base_url = prepared_request.url.replace(prepared_request.path_url, "")
     while True:
         try:
             response: Response = session.send(prepared_request, **settings)
             response.raise_for_status()  # raise HTTPError if status >=400
 
             if opt_helper:
-                opt_helper.log_debug(f'Response: {response.text}')
+                opt_helper.log_debug(f"Response: {response.text}")
 
             response_json: json = response.json()
 
             if opt_helper:
-                opt_helper.log_debug(f'Parsed response: {response_json}')
+                opt_helper.log_debug(f"Parsed response: {response_json}")
 
                 # If totalCount is in the response, log it
-                if 'totalCount' in response_json:
-                    opt_helper.log_info(f'correlation_id: {opt_helper.correlation_id}, '
-                                        f'dynatrace_json_response_size: {response_json["totalCount"]}')
+                if "totalCount" in response_json:
+                    opt_helper.log_info(
+                        f"correlation_id: {opt_helper.correlation_id}, "
+                        f'dynatrace_json_response_size: {response_json["totalCount"]}'
+                    )
 
             yield response_json
 
-            if 'nextPageKey' not in response_json or response_json['nextPageKey'] is None:
+            if (
+                "nextPageKey" not in response_json
+                or response_json["nextPageKey"] is None
+            ):
                 break
 
             # Remove all params except for nextPageKey
-            next_url = prepared_request.url.split('?')[0]
-            prepared_request.prepare_url(next_url, {'nextPageKey': response_json['nextPageKey']})
+            next_url = prepared_request.url.split("?")[0]
+            prepared_request.prepare_url(
+                next_url, {"nextPageKey": response_json["nextPageKey"]}
+            )
 
         except requests.exceptions.HTTPError as err:
             if opt_helper:
                 # Log the status code and error message
-                opt_helper.log_error(f'correlation_id: {opt_helper.correlation_id}, HTTP Error: {err}')
+                opt_helper.log_error(
+                    f"correlation_id: {opt_helper.correlation_id}, HTTP Error: {err}"
+                )
 
                 # If the server sent a response, log the response body
                 if err.response is not None:
-                    opt_helper.log_error(f'Details: {err.response.text}')
+                    opt_helper.log_error(f"Details: {err.response.text}")
             break
 
         except Exception as e:
             if opt_helper:
-                opt_helper.log_error(f'Unexpected error: {e}, correlation_id {opt_helper.correlation_id}')
+                opt_helper.log_error(
+                    f"Unexpected error: {e}, correlation_id {opt_helper.correlation_id}"
+                )
             break
 
 
@@ -712,7 +780,11 @@ def parse_dynatrace_response(response: json, endpoint: Endpoint):
     # Add resolution to parsed response if it exists: this is metric specific code
     # parsed response is a list and resolution is a string
     # Probably don't need this anymore
-    if endpoint == Endpoint.METRICS_QUERY and isinstance(parsed_response, list) and parsed_response:
+    if (
+        endpoint == Endpoint.METRICS_QUERY
+        and isinstance(parsed_response, list)
+        and parsed_response
+    ):
         parsed_response: MetricData = MetricData(**response)
         return parsed_response
 
@@ -725,28 +797,36 @@ def parse_dynatrace_response(response: json, endpoint: Endpoint):
 
 def write_certificate_to_file(cert_file, certificate, helper=None):
     try:
-        with open(cert_file, 'w') as f:
+        with open(cert_file, "w") as f:
             f.write(certificate)
         if helper:
-            helper.log_debug('Certificate written successfully')
+            helper.log_debug("Certificate written successfully")
         return True
     except Exception as e:
         if helper:
-            helper.log_error(f'Failed to write certificate: {e}')
+            helper.log_error(f"Failed to write certificate: {e}")
         return False
 
 
 def get_ssl_certificate_verification(helper=None):
-    local_dir = os.path.abspath(os.path.join(Path(__file__).resolve().parent.parent, "local"))
+    local_dir = os.path.abspath(
+        os.path.join(Path(__file__).resolve().parent.parent, "local")
+    )
     cert_file = os.path.join(local_dir, "cert.pem")
 
-    user_uploaded_certificate = helper.get_global_setting('user_certificate') if helper else None
+    user_uploaded_certificate = (
+        helper.get_global_setting("user_certificate") if helper else None
+    )
 
     # Update the certificate on disk if it doesn't exist or if the user uploaded a new certificate
     if not os.path.isfile(cert_file) or (
-            user_uploaded_certificate and open(cert_file, 'r').read() != user_uploaded_certificate):
+        user_uploaded_certificate
+        and open(cert_file, "r").read() != user_uploaded_certificate
+    ):
         if user_uploaded_certificate:
-            if not write_certificate_to_file(cert_file, user_uploaded_certificate, helper):
+            if not write_certificate_to_file(
+                cert_file, user_uploaded_certificate, helper
+            ):
                 return cert_file
 
     return cert_file if os.path.isfile(cert_file) else certifi.where()
