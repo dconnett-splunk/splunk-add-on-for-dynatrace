@@ -515,7 +515,13 @@ def execute_session(endpoints: Union[Endpoint, Tuple[Endpoint, Endpoint]], tenan
         session.headers.update(prepare_dynatrace_headers(api_token))
 
         main_endpoint, detail_endpoints = parse_endpoints(endpoints)
-        extra_params = main_endpoint.extra_params if main_endpoint.extra_params and extra_params is None else extra_params
+
+        if main_endpoint is None:
+            raise ValueError("Main endpoint cannot be None")
+
+        if main_endpoint.extra_params and extra_params is None:
+            extra_params = main_endpoint.extra_params
+
         prepared_params_list = prepare_dynatrace_params(tenant, main_endpoint, params, extra_params)
 
         counter = initialize_counter()
@@ -535,8 +541,10 @@ def parse_endpoints(endpoints):
 
 
 def initialize_counter():
-    return {'session_loop_count': 0, 'item_count': 0, 'result_count': 0, 'detail_count': 0, 'item_size': 0,
-            'result_size': 0, 'detail_size': 0}
+    return {
+        'session_loop_count': 0, 'item_count': 0, 'result_count': 0,
+        'detail_count': 0, 'item_size': 0, 'result_size': 0, 'detail_size': 0
+    }
 
 
 def process_main_results(result, counter):
@@ -572,8 +580,9 @@ def get_entity_properties_if_needed(detail_endpoints, result, tenant, extra_para
     entity_properties = []
     url_entity_property_params_string = None
     if detail_endpoints[0] == Endpoint.ENTITY and result[0].get('type'):
-        prepared_params_list = prepare_dynatrace_params(tenant, Endpoint.ENTITY_TYPES,
-                                                        {'entityType': result[0].get('type')}, extra_params)
+        prepared_params_list = prepare_dynatrace_params(
+            tenant, Endpoint.ENTITY_TYPES, {'entityType': result[0].get('type')}, extra_params
+        )
         for details in get_dynatrace_data(session, prepared_params_list):
             entity_properties.append(details['properties'])
         flattened_properties = entity_properties[0]
@@ -734,15 +743,10 @@ def get_ssl_certificate_verification(helper=None):
     user_uploaded_certificate = helper.get_global_setting('user_certificate') if helper else None
 
     # Update the certificate on disk if it doesn't exist or if the user uploaded a new certificate
-    if not os.path.isfile(cert_file) or (user_uploaded_certificate and open(cert_file, 'r').read() != user_uploaded_certificate):
+    if not os.path.isfile(cert_file) or (
+            user_uploaded_certificate and open(cert_file, 'r').read() != user_uploaded_certificate):
         if user_uploaded_certificate:
             if not write_certificate_to_file(cert_file, user_uploaded_certificate, helper):
                 return cert_file
 
     return cert_file if os.path.isfile(cert_file) else certifi.where()
-
-
-
-
-
-
