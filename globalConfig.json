@@ -183,41 +183,7 @@
                     }
                 },
                 {
-                    "name": "logging",
-                    "title": "Logging",
-                    "entity": [
-                        {
-                            "field": "loglevel",
-                            "label": "Log level",
-                            "type": "singleSelect",
-                            "options": {
-                                "disableSearch": true,
-                                "autoCompleteFields": [
-                                    {
-                                        "label": "DEBUG",
-                                        "value": "DEBUG"
-                                    },
-                                    {
-                                        "label": "INFO",
-                                        "value": "INFO"
-                                    },
-                                    {
-                                        "label": "WARNING",
-                                        "value": "WARNING"
-                                    },
-                                    {
-                                        "label": "ERROR",
-                                        "value": "ERROR"
-                                    },
-                                    {
-                                        "label": "CRITICAL",
-                                        "value": "CRITICAL"
-                                    }
-                                ]
-                            },
-                            "defaultValue": "INFO"
-                        }
-                    ]
+                    "type": "loggingTab"
                 },
                 {
                     "name": "certificates",
@@ -315,7 +281,6 @@
                 ],
                 "actions": [
                     "edit",
-                    "enable",
                     "delete",
                     "clone"
                 ]
@@ -347,18 +312,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",
@@ -495,18 +453,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",
@@ -603,18 +554,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",
@@ -754,18 +698,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",
@@ -866,18 +803,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",
@@ -1087,18 +1017,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",
