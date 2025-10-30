@@ -23,7 +23,7 @@ import package.bin.util as util
 from package.bin.util import Endpoint
 from dynatrace_types import *
 
-version = "2.0.8"
+version = "2.1.6"
 script_location: Path = Path(__file__).resolve()
 
 
