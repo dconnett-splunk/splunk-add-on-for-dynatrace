@@ -2,9 +2,10 @@
     "meta": {
         "name": "Splunk_TA_Dynatrace",
         "displayName": "Dynatrace Add-on for Splunk",
-        "version": "2.1.7-beta",
+        "version": "2.1.7",
         "restRoot": "Splunk_TA_Dynatrace",
-        "schemaVersion": "0.0.9"
+        "schemaVersion": "2.0.0",
+        "_uccVersion": "5.39.0"
     },
     "pages": {
         "configuration": {
@@ -183,7 +184,41 @@
                     }
                 },
                 {
-                    "type": "loggingTab"
+                    "name": "logging",
+                    "title": "Logging",
+                    "entity": [
+                        {
+                            "field": "loglevel",
+                            "label": "Log level",
+                            "type": "singleSelect",
+                            "options": {
+                                "disableSearch": true,
+                                "autoCompleteFields": [
+                                    {
+                                        "label": "DEBUG",
+                                        "value": "DEBUG"
+                                    },
+                                    {
+                                        "label": "INFO",
+                                        "value": "INFO"
+                                    },
+                                    {
+                                        "label": "WARNING",
+                                        "value": "WARNING"
+                                    },
+                                    {
+                                        "label": "ERROR",
+                                        "value": "ERROR"
+                                    },
+                                    {
+                                        "label": "CRITICAL",
+                                        "value": "CRITICAL"
+                                    }
+                                ]
+                            },
+                            "defaultValue": "INFO"
+                        }
+                    ]
                 },
                 {
                     "name": "certificates",
@@ -312,11 +347,18 @@
                             ]
                         },
                         {
-                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
+                            "type": "text",
+                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "required": true
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
+                                    "errorMsg": "Interval must be an integer."
+                                }
+                            ]
                         },
                         {
                             "field": "index",
@@ -453,11 +495,18 @@
                             ]
                         },
                         {
-                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
+                            "type": "text",
+                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "required": true
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
+                                    "errorMsg": "Interval must be an integer."
+                                }
+                            ]
                         },
                         {
                             "field": "index",
@@ -554,11 +603,18 @@
                             ]
                         },
                         {
-                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
+                            "type": "text",
+                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "required": true
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
+                                    "errorMsg": "Interval must be an integer."
+                                }
+                            ]
                         },
                         {
                             "field": "index",
@@ -698,11 +754,18 @@
                             ]
                         },
                         {
-                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
+                            "type": "text",
+                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "required": true
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
+                                    "errorMsg": "Interval must be an integer."
+                                }
+                            ]
                         },
                         {
                             "field": "index",
@@ -803,11 +866,18 @@
                             ]
                         },
                         {
-                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
+                            "type": "text",
+                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "required": true
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
+                                    "errorMsg": "Interval must be an integer."
+                                }
+                            ]
                         },
                         {
                             "field": "index",
@@ -1017,11 +1087,18 @@
                             ]
                         },
                         {
-                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
+                            "type": "text",
+                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "required": true
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
+                                    "errorMsg": "Interval must be an integer."
+                                }
+                            ]
                         },
                         {
                             "field": "index",
