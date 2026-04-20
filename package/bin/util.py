@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from typing import Tuple, Optional
+from typing import Any, List, Optional, Tuple, Union
 import pickle
 from uuid import UUID
 import urllib3
@@ -91,6 +91,12 @@ class Endpoint(Enum):
             "SERVICE",
             "SYNTHETIC_TEST",
             "SYNTHETIC_TEST_STEP",
+            "KUBERNETES_CLUSTER",
+            "KUBERNETES_NODE",
+            "CLOUD_APPLICATION_NAMESPACE",
+            "CLOUD_APPLICATION",
+            "CLOUD_APPLICATION_INSTANCE",
+            "CONTAINER_GROUP_INSTANCE",
         ],
     )
     ENTITY = EndpointInfo(
@@ -101,6 +107,12 @@ class Endpoint(Enum):
     )
     ENTITY_TYPES = EndpointInfo(
         URL("/api/v2/entityTypes/{entityType}"), None, None, PathParam("entityType")
+    )
+    ENTITY_TYPES_LIST = EndpointInfo(
+        URL("/api/v2/entityTypes"),
+        ResponseSelector("types"),
+        None,
+        None,
     )
     PROBLEM = EndpointInfo(
         URL("/api/v2/problems/{problemId}"),
@@ -530,6 +542,8 @@ def execute_session(
     api_token,
     params,
     extra_params=None,
+    proxy_uri=None,
+    verify=None,
     opt_helper=None,
 ):
     params = Params(params)
@@ -548,13 +562,27 @@ def execute_session(
         )
 
         counter = initialize_counter()
-        for result in get_dynatrace_data(session, prepared_params_list, opt_helper):
+        for result in get_dynatrace_data(
+            session,
+            prepared_params_list,
+            opt_helper,
+            proxy_uri=proxy_uri,
+            verify=verify,
+        ):
             counter["session_loop_count"] += 1
             if not detail_endpoints:
                 yield from process_main_results(result, counter)
             else:
                 yield from process_detail_endpoints(
-                    result, detail_endpoints, tenant, extra_params, counter, session
+                    result,
+                    detail_endpoints,
+                    tenant,
+                    extra_params,
+                    counter,
+                    session,
+                    opt_helper=opt_helper,
+                    proxy_uri=proxy_uri,
+                    verify=verify,
                 )
         log_counters(opt_helper, counter)
 
@@ -590,12 +618,27 @@ def process_main_results(result, counter):
 
 
 def process_detail_endpoints(
-    result, detail_endpoints, tenant, extra_params, counter, session
+    result,
+    detail_endpoints,
+    tenant,
+    extra_params,
+    counter,
+    session,
+    opt_helper=None,
+    proxy_uri=None,
+    verify=None,
 ):
     if result:
         entity_properties, url_entity_property_params_string = (
             get_entity_properties_if_needed(
-                detail_endpoints, result, tenant, extra_params, session
+                detail_endpoints,
+                result,
+                tenant,
+                extra_params,
+                session,
+                opt_helper=opt_helper,
+                proxy_uri=proxy_uri,
+                verify=verify,
             )
         )
         for record in result:
@@ -610,12 +653,25 @@ def process_detail_endpoints(
             prepared_params_list = prepare_dynatrace_params(
                 tenant, detail_endpoints[0], params, extra_params
             )
-            for details in get_dynatrace_data(session, prepared_params_list):
+            for details in get_dynatrace_data(
+                session,
+                prepared_params_list,
+                opt_helper,
+                proxy_uri=proxy_uri,
+                verify=verify,
+            ):
                 yield details
 
 
 def get_entity_properties_if_needed(
-    detail_endpoints, result, tenant, extra_params, session
+    detail_endpoints,
+    result,
+    tenant,
+    extra_params,
+    session,
+    opt_helper=None,
+    proxy_uri=None,
+    verify=None,
 ):
     entity_properties = []
     url_entity_property_params_string = None
@@ -626,7 +682,13 @@ def get_entity_properties_if_needed(
             {"entityType": result[0].get("type")},
             extra_params,
         )
-        for details in get_dynatrace_data(session, prepared_params_list):
+        for details in get_dynatrace_data(
+            session,
+            prepared_params_list,
+            opt_helper,
+            proxy_uri=proxy_uri,
+            verify=verify,
+        ):
             entity_properties.append(details["properties"])
         flattened_properties = entity_properties[0]
         url_entity_property_params = [
@@ -645,30 +707,58 @@ def log_counters(opt_helper, counter):
         )
 
 
-def get_dynatrace_data(session: Session, prepared_params_list, opt_helper=None):
+def list_dynatrace_entity_types(
+    tenant,
+    api_token,
+    proxy_uri=None,
+    verify=None,
+    opt_helper=None,
+):
+    entity_types = []
+    seen_entity_types = set()
+    for item in execute_session(
+        Endpoint.ENTITY_TYPES_LIST,
+        tenant,
+        api_token,
+        {"pageSize": 500},
+        proxy_uri=proxy_uri,
+        verify=verify,
+        opt_helper=opt_helper,
+    ):
+        entity_type = item.get("type") if isinstance(item, dict) else None
+        if entity_type and entity_type not in seen_entity_types:
+            seen_entity_types.add(entity_type)
+            entity_types.append(entity_type)
+    return entity_types
+
+
+def get_dynatrace_data(
+    session: Session,
+    prepared_params_list,
+    opt_helper=None,
+    proxy_uri=None,
+    verify=None,
+):
     for url, params, endpoint in prepared_params_list:
 
         prepared_request = prepare_dynatrace_request(session, url, params)
-        # Get the proxy URI
-        proxy_uri = opt_helper._get_proxy_uri() if opt_helper else None
+        effective_proxy_uri = proxy_uri
+        if effective_proxy_uri is None and opt_helper:
+            effective_proxy_uri = opt_helper._get_proxy_uri()
 
-        # Set proxy to localhost 8080 for now
-        # proxy_uri = 'https://localhost:8080'
-
-        # Set cert to mitm proxy cert
-        # cert_file = '~/.mitmproxy/mitmproxy-ca-cert.pem'
-
-        # Convert the proxy URI into a dictionary format expected by merge_environment_settings
         proxies = {}
-        if proxy_uri:
-            # Assuming the proxy is HTTP; adjust if necessary for HTTPS or other types
-            proxies = {"http": proxy_uri, "https": proxy_uri}
+        if effective_proxy_uri:
+            proxies = {"http": effective_proxy_uri, "https": effective_proxy_uri}
+
+        effective_verify = (
+            verify if verify is not None else get_ssl_certificate_verification(opt_helper)
+        )
 
         settings = session.merge_environment_settings(
             prepared_request.url,
             proxies,
             None,
-            get_ssl_certificate_verification(opt_helper),
+            effective_verify,
             None,
         )
         # print('prepared_request: {}'.format(prepared_request))
@@ -812,15 +902,16 @@ def write_certificate_to_file(cert_file, certificate, helper=None):
         return False
 
 
-def get_ssl_certificate_verification(helper=None):
+def get_ssl_certificate_verification(helper=None, user_certificate=None):
     local_dir = os.path.abspath(
         os.path.join(Path(__file__).resolve().parent.parent, "local")
     )
+    os.makedirs(local_dir, exist_ok=True)
     cert_file = os.path.join(local_dir, "cert.pem")
 
-    user_uploaded_certificate = (
-        helper.get_global_setting("user_certificate") if helper else None
-    )
+    user_uploaded_certificate = user_certificate
+    if user_uploaded_certificate is None and helper:
+        user_uploaded_certificate = helper.get_global_setting("user_certificate")
 
     # Update the certificate on disk if it doesn't exist or if the user uploaded a new certificate
     if not os.path.isfile(cert_file) or (

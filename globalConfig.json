@@ -2,10 +2,9 @@
     "meta": {
         "name": "Splunk_TA_Dynatrace",
         "displayName": "Dynatrace Add-on for Splunk",
-        "version": "2.1.7",
+        "version": "2.1.7+60dc5ea",
         "restRoot": "Splunk_TA_Dynatrace",
-        "schemaVersion": "2.0.0",
-        "_uccVersion": "5.39.0"
+        "schemaVersion": "0.0.10"
     },
     "pages": {
         "configuration": {
@@ -184,41 +183,7 @@
                     }
                 },
                 {
-                    "name": "logging",
-                    "title": "Logging",
-                    "entity": [
-                        {
-                            "field": "loglevel",
-                            "label": "Log level",
-                            "type": "singleSelect",
-                            "options": {
-                                "disableSearch": true,
-                                "autoCompleteFields": [
-                                    {
-                                        "label": "DEBUG",
-                                        "value": "DEBUG"
-                                    },
-                                    {
-                                        "label": "INFO",
-                                        "value": "INFO"
-                                    },
-                                    {
-                                        "label": "WARNING",
-                                        "value": "WARNING"
-                                    },
-                                    {
-                                        "label": "ERROR",
-                                        "value": "ERROR"
-                                    },
-                                    {
-                                        "label": "CRITICAL",
-                                        "value": "CRITICAL"
-                                    }
-                                ]
-                            },
-                            "defaultValue": "INFO"
-                        }
-                    ]
+                    "type": "loggingTab"
                 },
                 {
                     "name": "certificates",
@@ -322,7 +287,6 @@
             },
             "services": [
                 {
-                    "template": "input_with_helper",
                     "name": "dynatrace_entity",
                     "title": "Dynatrace Entity",
                     "entity": [
@@ -347,18 +311,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",
@@ -470,7 +427,6 @@
                     ]
                 },
                 {
-                    "template": "input_with_helper",
                     "name": "dynatrace_problem",
                     "title": "Dynatrace Problem",
                     "entity": [
@@ -495,18 +451,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",
@@ -578,7 +527,6 @@
                     ]
                 },
                 {
-                    "template": "input_with_helper",
                     "name": "dynatrace_timeseries_single_metric",
                     "title": "Dynatrace Timeseries Single Metric",
                     "entity": [
@@ -603,18 +551,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",
@@ -729,7 +670,6 @@
                     ]
                 },
                 {
-                    "template": "input_with_helper",
                     "name": "dynatrace_timeseries_metrics",
                     "title": "Dynatrace Timeseries Metrics",
                     "entity": [
@@ -754,18 +694,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",
@@ -841,7 +774,6 @@
                     ]
                 },
                 {
-                    "template": "input_with_helper",
                     "name": "dynatrace_api_v2",
                     "title": "Dynatrace API Version 2",
                     "entity": [
@@ -866,18 +798,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",
@@ -1058,11 +983,25 @@
                                     }
                                 ]
                             }
+                        },
+                        {
+                            "field": "dynatrace_entity_selectors_v2",
+                            "label": "Dynatrace Entities",
+                            "help": "Select one or more Dynatrace entity types. Choose a Dynatrace Account first to load the available options. This field is used only for Entities and Entity Details endpoints.",
+                            "required": false,
+                            "type": "multipleSelect",
+                            "options": {
+                                "display": true,
+                                "delimiter": "~",
+                                "dependencies": [
+                                    "dynatrace_account"
+                                ],
+                                "endpointUrl": "Splunk_TA_Dynatrace/DynatraceEntities"
+                            }
                         }
                     ]
                 },
                 {
-                    "template": "input_with_helper",
                     "name": "dynatrace_timeseries_metrics_v2",
                     "title": "Dynatrace Timeseries Metrics API v2",
                     "entity": [
@@ -1087,18 +1026,11 @@
                             ]
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Interval",
-                            "type": "text",
-                            "required": true,
                             "help": "Time interval of input in seconds.",
-                            "validators": [
-                                {
-                                    "type": "regex",
-                                    "pattern": "^\\-[1-9]\\d*$|^\\d*$",
-                                    "errorMsg": "Interval must be an integer."
-                                }
-                            ]
+                            "required": true
                         },
                         {
                             "field": "index",

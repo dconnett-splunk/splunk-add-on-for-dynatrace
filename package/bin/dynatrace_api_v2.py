@@ -76,10 +76,10 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
                                          required_on_create=True,
                                          required_on_edit=False))
 
-        # scheme.add_argument(smi.Argument("entity_endpoints", title="Entity Endpoints",
-        #                                  description="",
-        #                                  required_on_create=True,
-        #                                  required_on_edit=False))
+        scheme.add_argument(smi.Argument("dynatrace_entity_selectors_v2", title="Dynatrace Entities",
+                                         description="Select one or more Dynatrace entity types.",
+                                         required_on_create=False,
+                                         required_on_edit=False))
 
         return scheme
 
@@ -108,10 +108,27 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         index = helper.get_arg("index")
 
         time_start = util.get_from_time(opt_dynatrace_collection_interval_minutes)
+        selected_entity_types = helper.get_arg("dynatrace_entity_selectors_v2")
+        if isinstance(selected_entity_types, str):
+            selected_entity_types = [
+                entity_type.strip()
+                for entity_type in selected_entity_types.split("~")
+                if entity_type.strip()
+            ]
+        elif isinstance(selected_entity_types, (list, tuple, set)):
+            selected_entity_types = [
+                str(entity_type).strip()
+                for entity_type in selected_entity_types
+                if str(entity_type).strip()
+            ]
+        else:
+            selected_entity_types = []
 
-        # Set a default list of entity types for the 'entities' endpoint
-        # TODO - Need to make this configurable
-        default_entity_types = ["HOST", "PROCESS_GROUP_INSTANCE", "PROCESS_GROUP", "APPLICATION", "SERVICE", "SYNTHETIC_TEST", "SYNTHETIC_TEST_STEP"]
+        is_entity_endpoint = endpoint in (
+            Endpoint.ENTITIES,
+            (Endpoint.ENTITIES, Endpoint.ENTITY),
+        )
+        extra_params = selected_entity_types if is_entity_endpoint and selected_entity_types else None
 
         # TODO - Change synthetic_tests_on_demand to synthetic_executions_on_demand
         # Will also need to change strings in the apiv2.py file and the util.py selectors and enpoints
@@ -134,7 +151,15 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
 
         params = {'time': time_start}
         helper.log_info(f"correlation_id: {helper.correlation_id}, executing session for endpoint: {endpoint}")
-        dynatrace_data = util.execute_session(endpoint, opt_dynatrace_tenant, opt_dynatrace_api_token, params, opt_helper=helper)
+        dynatrace_data = util.execute_session(
+            endpoint,
+            opt_dynatrace_tenant,
+            opt_dynatrace_api_token,
+            params,
+            extra_params=extra_params,
+            verify=opt_ssl_certificate_verification,
+            opt_helper=helper,
+        )
 
         helper.log_debug('dynatrace_tenant: {}'.format(opt_dynatrace_tenant))
         helper.log_debug('dynatrace_collection_interval: {}'.format(opt_dynatrace_collection_interval_minutes))
