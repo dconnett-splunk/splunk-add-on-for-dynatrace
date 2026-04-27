@@ -1,3 +1,5 @@
+import import_declare_test
+
 import json
 import logging
 import urllib.parse
