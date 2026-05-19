@@ -27,6 +27,11 @@ from solnlib.modular_input import checkpointer
 from splunktaucclib.modinput_wrapper import base_modinput as base_mi
 import requests
 import util
+from dynatrace_entity_selectors import (
+    COMPATIBILITY_ENTITY_SELECTOR_TEXTAREA_FIELD,
+    ENTITY_SELECTOR_FIELD,
+    get_selected_entity_types,
+)
 from util import Endpoint
 from pathlib import Path
 from dynatrace_types_37 import *
@@ -76,10 +81,20 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
                                          required_on_create=True,
                                          required_on_edit=False))
 
-        scheme.add_argument(smi.Argument("dynatrace_entity_selectors_v2", title="Dynatrace Entities",
+        scheme.add_argument(smi.Argument(ENTITY_SELECTOR_FIELD, title="Dynatrace Entities",
                                          description="Select one or more Dynatrace entity types.",
                                          required_on_create=False,
                                          required_on_edit=False))
+
+        scheme.add_argument(
+            smi.Argument(
+                COMPATIBILITY_ENTITY_SELECTOR_TEXTAREA_FIELD,
+                title="Dynatrace Entities (compatibility)",
+                description="Compatibility field for divergent entity selector storage.",
+                required_on_create=False,
+                required_on_edit=False,
+            )
+        )
 
         return scheme
 
@@ -108,21 +123,7 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
         index = helper.get_arg("index")
 
         time_start = util.get_from_time(opt_dynatrace_collection_interval_minutes)
-        selected_entity_types = helper.get_arg("dynatrace_entity_selectors_v2")
-        if isinstance(selected_entity_types, str):
-            selected_entity_types = [
-                entity_type.strip()
-                for entity_type in selected_entity_types.split("~")
-                if entity_type.strip()
-            ]
-        elif isinstance(selected_entity_types, (list, tuple, set)):
-            selected_entity_types = [
-                str(entity_type).strip()
-                for entity_type in selected_entity_types
-                if str(entity_type).strip()
-            ]
-        else:
-            selected_entity_types = []
+        selected_entity_types = get_selected_entity_types(helper)
 
         is_entity_endpoint = endpoint in (
             Endpoint.ENTITIES,

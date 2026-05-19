@@ -2,7 +2,7 @@
     "meta": {
         "name": "Splunk_TA_Dynatrace",
         "displayName": "Dynatrace Add-on for Splunk",
-        "version": "2.1.7+60dc5ea",
+        "version": "2.1.8",
         "restRoot": "Splunk_TA_Dynatrace",
         "schemaVersion": "0.0.10"
     },
@@ -997,6 +997,16 @@
                                     "dynatrace_account"
                                 ],
                                 "endpointUrl": "Splunk_TA_Dynatrace/DynatraceEntities"
+                            }
+                        },
+                        {
+                            "field": "dynatrace_entity_selectors_v2_textarea",
+                            "label": "Dynatrace Entities (compatibility)",
+                            "help": "Compatibility storage field retained so upgraded API v2 entity inputs keep their existing selections.",
+                            "required": false,
+                            "type": "textarea",
+                            "options": {
+                                "display": false
                             }
                         }
                     ]
