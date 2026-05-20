@@ -18,9 +18,24 @@ pip install https://download.splunk.com/misc/appinspect/splunk-appinspect-latest
 ```
 
 
+## Package build
+
+Use the Makefile for UCC/Slim packaging instead of invoking `ucc-gen` directly. It pins the UCC build tool, uses Python 3.9 for vendored add-on dependencies, and verifies the tarball for the dependency regression that can break older Splunk Python handler runtimes.
+
+```bash
+make beta VERSION=2.1.8-beta3
+```
+
+For the local Splunk symlinked app, rebuild `output/Splunk_TA_Dynatrace` with:
+
+```bash
+make local-output VERSION=2.1.8
+```
+
+
 ## Test
 
-Using docker 
+Using docker
 
 ```bash
 pytest

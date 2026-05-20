@@ -34,6 +34,7 @@ __pycache__/
 venv/
 .venv/
 build/
+.build/
 test-reports
 #Splunk Files
 
