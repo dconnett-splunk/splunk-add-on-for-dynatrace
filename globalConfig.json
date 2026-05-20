@@ -1001,7 +1001,7 @@
                         },
                         {
                             "field": "dynatrace_entity_selectors_v2_textarea",
-                            "label": "Dynatrace Entities (compatibility)",
+                            "label": "Entities compatibility",
                             "help": "Compatibility storage field retained so upgraded API v2 entity inputs keep their existing selections.",
                             "required": false,
                             "type": "textarea",
