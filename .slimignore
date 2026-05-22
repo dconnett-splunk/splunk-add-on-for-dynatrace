@@ -7,3 +7,4 @@ samples
 *.py[co]
 Thumbs.db
 secrets.env
+local_artifacts/

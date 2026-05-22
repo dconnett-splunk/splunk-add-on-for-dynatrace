@@ -77,3 +77,4 @@ tests/test_util.py
 tests/local/inputs.conf
 tests/local/passwords.conf
 .vagrant
+local_artifacts/
