@@ -28,7 +28,6 @@ from splunktaucclib.modinput_wrapper import base_modinput as base_mi
 import requests
 import util
 from dynatrace_entity_selectors import (
-    COMPATIBILITY_ENTITY_SELECTOR_TEXTAREA_FIELD,
     ENTITY_SELECTOR_FIELD,
     get_selected_entity_types,
 )
@@ -85,16 +84,6 @@ class ModInputdynatrace_api_v2(base_mi.BaseModInput):
                                          description="Select one or more Dynatrace entity types.",
                                          required_on_create=False,
                                          required_on_edit=False))
-
-        scheme.add_argument(
-            smi.Argument(
-                COMPATIBILITY_ENTITY_SELECTOR_TEXTAREA_FIELD,
-                title="Dynatrace Entities (compatibility)",
-                description="Compatibility field for divergent entity selector storage.",
-                required_on_create=False,
-                required_on_edit=False,
-            )
-        )
 
         return scheme
 

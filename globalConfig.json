@@ -985,28 +985,18 @@
                             }
                         },
                         {
-                            "field": "dynatrace_entity_selectors_v2",
+                            "field": "dynatrace_entity_selectors_v2_textarea",
                             "label": "Dynatrace Entities",
                             "help": "Select one or more Dynatrace entity types. Choose a Dynatrace Account first to load the available options. This field is used only for Entities and Entity Details endpoints.",
                             "required": false,
                             "type": "multipleSelect",
                             "options": {
                                 "display": true,
-                                "delimiter": "~",
+                                "delimiter": ",",
                                 "dependencies": [
                                     "dynatrace_account"
                                 ],
                                 "endpointUrl": "Splunk_TA_Dynatrace/DynatraceEntities"
-                            }
-                        },
-                        {
-                            "field": "dynatrace_entity_selectors_v2_textarea",
-                            "label": "Entities compatibility",
-                            "help": "Compatibility storage field retained so upgraded API v2 entity inputs keep their existing selections.",
-                            "required": false,
-                            "type": "textarea",
-                            "options": {
-                                "display": false
                             }
                         }
                     ]

@@ -32,7 +32,7 @@ FORBIDDEN_ARTIFACT_PATHS := opentelemetry|grpc|(^|/)local/|\.env|\.slimignore|\.
 help:
 	@printf '%s\n' \
 		'Build targets:' \
-		'  make beta VERSION=2.1.8-beta3      Build, package, and verify a beta tarball.' \
+		'  make beta VERSION=2.1.8-beta4      Build, package, and verify a beta tarball.' \
 		'  make package VERSION=2.1.8          Build, package, and verify a tarball.' \
 		'  make local-output VERSION=2.1.8     Rebuild output/ for the local Splunk symlink.' \
 		'  make verify-package VERSION=...     Verify an existing tarball in releases/.' \
@@ -108,7 +108,7 @@ verify-package:
 		for script in $(PACKAGED_MODINPUT_SCRIPT_PATHS); do \
 			test -x "$$scan_dir/$$script" || { echo "ERROR: $$script is not executable in artifact"; exit 1; }; \
 		done; \
-		PYTHONPATH="$$scan_dir/$(TA_NAME)/lib:$$scan_dir/$(TA_NAME)/bin" "$(ADDON_PYTHON)" -c 'from importlib import metadata as md; import packaging._manylinux, packaging.tags, packaging.version, requests, solnlib.splunk_rest_client, splunktaucclib, dynatrace_entity_selectors; assert md.version("splunktaucclib") == "$(SPLUNKTAUCCLIB_VERSION)"; assert md.version("solnlib") == "$(SOLNLIB_VERSION)"; assert md.version("requests") == "$(REQUESTS_VERSION)"; assert dynatrace_entity_selectors.select_entity_types(None, "HOST~SERVICE") == ["HOST", "SERVICE"]; print("artifact runtime checks ok")'
+		PYTHONPATH="$$scan_dir/$(TA_NAME)/lib:$$scan_dir/$(TA_NAME)/bin" "$(ADDON_PYTHON)" -c 'from importlib import metadata as md; import packaging._manylinux, packaging.tags, packaging.version, requests, solnlib.splunk_rest_client, splunktaucclib, dynatrace_entity_selectors; assert md.version("splunktaucclib") == "$(SPLUNKTAUCCLIB_VERSION)"; assert md.version("solnlib") == "$(SOLNLIB_VERSION)"; assert md.version("requests") == "$(REQUESTS_VERSION)"; assert dynatrace_entity_selectors.select_entity_types("HOST,SERVICE") == ["HOST", "SERVICE"]; print("artifact runtime checks ok")'
 
 test:
 	python -m unittest tests.test_dynatrace_entity_selectors -v

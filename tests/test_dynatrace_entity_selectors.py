@@ -13,34 +13,22 @@ class Helper:
 
 
 class TestDynatraceEntitySelectors(TestCase):
-    def test_select_entity_types_reads_current_multiple_select_delimiter(self):
+    def test_select_entity_types_reads_comma_delimited_values(self):
         self.assertEqual(
             ["HOST", "SERVICE", "APPLICATION"],
-            selectors.select_entity_types("HOST~SERVICE~APPLICATION"),
+            selectors.select_entity_types("HOST,SERVICE,APPLICATION"),
         )
 
-    def test_select_entity_types_falls_back_to_compatibility_textarea_value(self):
+    def test_select_entity_types_handles_newlines_and_spaces(self):
         self.assertEqual(
             ["HOST", "PROCESS_GROUP_INSTANCE", "SERVICE"],
-            selectors.select_entity_types(
-                "",
-                "HOST, PROCESS_GROUP_INSTANCE\nSERVICE",
-            ),
+            selectors.select_entity_types("HOST, PROCESS_GROUP_INSTANCE\nSERVICE"),
         )
 
-    def test_select_entity_types_prefers_current_value_over_compatibility_value(self):
-        self.assertEqual(
-            ["HOST", "SERVICE"],
-            selectors.select_entity_types(
-                "HOST~SERVICE",
-                "APPLICATION,PROCESS_GROUP",
-            ),
-        )
-
-    def test_get_selected_entity_types_tolerates_missing_optional_fields(self):
+    def test_get_selected_entity_types_reads_canonical_ucc_field(self):
         helper = Helper(
             {
-                selectors.COMPATIBILITY_ENTITY_SELECTOR_TEXTAREA_FIELD: (
+                selectors.ENTITY_SELECTOR_FIELD: (
                     "HOST,PROCESS_GROUP_INSTANCE,PROCESS_GROUP"
                 )
             }
@@ -54,3 +42,6 @@ class TestDynatraceEntitySelectors(TestCase):
             ],
             selectors.get_selected_entity_types(helper),
         )
+
+    def test_get_selected_entity_types_tolerates_missing_optional_field(self):
+        self.assertEqual([], selectors.get_selected_entity_types(Helper({})))
